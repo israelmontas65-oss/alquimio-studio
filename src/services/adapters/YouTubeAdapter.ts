@@ -20,6 +20,10 @@ export class YouTubeAdapter extends BaseAdapter {
     token: string,
     onProgress?: ProgressCallback
   ): Promise<string> {
+    if (media.type === 'image') {
+      throw new Error('YouTube solo admite formato de video.');
+    }
+
     // Iniciar upload session
     const initRes = await axios.post(
       `${YT_UPLOAD_BASE}/videos?uploadType=resumable&part=snippet,status`,

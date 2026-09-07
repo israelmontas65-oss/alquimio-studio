@@ -4,6 +4,7 @@
 // ============================================================
 
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import type { PlatformId } from '../types/platform.types';
 
 const TOKEN_KEY_PREFIX = 'alquimio_token_';
@@ -24,6 +25,15 @@ export async function saveToken(
   token: StoredToken
 ): Promise<void> {
   const { accessToken, refreshToken, expiresAt, userId, displayName } = token;
+
+  if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(`${TOKEN_KEY_PREFIX}${platformId}`, JSON.stringify({ accessToken, userId, displayName }));
+      if (refreshToken) localStorage.setItem(`${REFRESH_KEY_PREFIX}${platformId}`, refreshToken);
+      if (expiresAt) localStorage.setItem(`${EXPIRES_KEY_PREFIX}${platformId}`, String(expiresAt));
+    }
+    return;
+  }
 
   await SecureStore.setItemAsync(
     `${TOKEN_KEY_PREFIX}${platformId}`,
@@ -50,9 +60,22 @@ export async function getToken(
   platformId: PlatformId
 ): Promise<StoredToken | null> {
   try {
-    const raw = await SecureStore.getItemAsync(
-      `${TOKEN_KEY_PREFIX}${platformId}`
-    );
+    let raw: string | null = null;
+    let refreshRaw: string | null = null;
+    let expiresRaw: string | null = null;
+
+    if (Platform.OS === 'web') {
+      if (typeof localStorage !== 'undefined') {
+        raw = localStorage.getItem(`${TOKEN_KEY_PREFIX}${platformId}`);
+        refreshRaw = localStorage.getItem(`${REFRESH_KEY_PREFIX}${platformId}`);
+        expiresRaw = localStorage.getItem(`${EXPIRES_KEY_PREFIX}${platformId}`);
+      }
+    } else {
+      raw = await SecureStore.getItemAsync(`${TOKEN_KEY_PREFIX}${platformId}`);
+      refreshRaw = await SecureStore.getItemAsync(`${REFRESH_KEY_PREFIX}${platformId}`);
+      expiresRaw = await SecureStore.getItemAsync(`${EXPIRES_KEY_PREFIX}${platformId}`);
+    }
+
     if (!raw) return null;
 
     const { accessToken, userId, displayName } = JSON.parse(raw) as {
@@ -61,13 +84,7 @@ export async function getToken(
       displayName?: string;
     };
 
-    const refreshToken =
-      (await SecureStore.getItemAsync(`${REFRESH_KEY_PREFIX}${platformId}`)) ??
-      undefined;
-
-    const expiresRaw = await SecureStore.getItemAsync(
-      `${EXPIRES_KEY_PREFIX}${platformId}`
-    );
+    const refreshToken = refreshRaw ?? undefined;
     const expiresAt = expiresRaw ? Number(expiresRaw) : undefined;
 
     return { accessToken, refreshToken, expiresAt, userId, displayName };
@@ -86,6 +103,14 @@ export async function isTokenValid(platformId: PlatformId): Promise<boolean> {
 
 // ── Eliminar token (logout de plataforma) ───────────────────
 export async function removeToken(platformId: PlatformId): Promise<void> {
+  if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(`${TOKEN_KEY_PREFIX}${platformId}`);
+      localStorage.removeItem(`${REFRESH_KEY_PREFIX}${platformId}`);
+      localStorage.removeItem(`${EXPIRES_KEY_PREFIX}${platformId}`);
+    }
+    return;
+  }
   await SecureStore.deleteItemAsync(`${TOKEN_KEY_PREFIX}${platformId}`);
   await SecureStore.deleteItemAsync(`${REFRESH_KEY_PREFIX}${platformId}`);
   await SecureStore.deleteItemAsync(`${EXPIRES_KEY_PREFIX}${platformId}`);

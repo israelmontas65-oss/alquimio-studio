@@ -37,34 +37,43 @@ export class MetaAdapter extends BaseAdapter {
     }
   }
 
-  // Instagram: crear contenedor de Reels
+  // Instagram: crear contenedor de Reels / Imagen
   private async uploadInstagramReel(
     media: MediaFile,
     token: string,
     onProgress?: ProgressCallback
   ): Promise<string> {
+    const isVideo = media.type === 'video';
+    const params: Record<string, string> = {
+      access_token: token,
+    };
+    
+    if (isVideo) {
+      params.media_type = 'REELS';
+      params.video_url = media.uri;
+    } else {
+      params.image_url = media.uri;
+    }
+
     const res = await axios.post(
       `${META_GRAPH_BASE}/${this.accountId}/media`,
       null,
-      {
-        params: {
-          media_type: 'REELS',
-          video_url: media.uri,
-          access_token: token,
-        },
-      }
+      { params }
     );
 
     onProgress?.(50);
     return res.data.id as string; // creation_id
   }
 
-  // Facebook: subir video
+  // Facebook: subir video o imagen
   private async uploadFacebookVideo(
     media: MediaFile,
     token: string,
     onProgress?: ProgressCallback
   ): Promise<string> {
+    const isVideo = media.type === 'video';
+    const endpoint = isVideo ? 'videos' : 'photos';
+
     const formData = new FormData();
     formData.append('access_token', token);
     formData.append('source', {
@@ -74,7 +83,7 @@ export class MetaAdapter extends BaseAdapter {
     } as unknown as Blob);
 
     const res = await axios.post(
-      `${META_GRAPH_BASE}/${this.accountId}/videos`,
+      `${META_GRAPH_BASE}/${this.accountId}/${endpoint}`,
       formData,
       {
         headers: { 'Content-Type': 'multipart/form-data' },

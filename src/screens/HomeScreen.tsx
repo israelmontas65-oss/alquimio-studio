@@ -56,7 +56,7 @@ import {
 import type { PlatformId } from '../types/platform.types';
 
 const { width: W, height: H } = Dimensions.get('window');
-const EMBLEM_SIZE = 190;
+const EMBLEM_SIZE = 220;
 const EMBLEM_RADIUS = EMBLEM_SIZE / 2;
 
 // ─────────────────────────────────────────────
@@ -192,7 +192,7 @@ function HoloHeader({
 const hero = StyleSheet.create({
   container: {
     width: '100%',
-    height: 270,
+    height: 300,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -266,9 +266,9 @@ const hero = StyleSheet.create({
   },
   letterHalo: {
     position: 'absolute',
-    width: 86,
-    height: 86,
-    borderRadius: 43,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: 'rgba(245,197,24,0.18)',
     shadowColor: '#F5C518',
     shadowRadius: 28,
@@ -276,13 +276,13 @@ const hero = StyleSheet.create({
     elevation: 10,
   },
   letterA: {
-    fontSize: 64,
+    fontSize: 76,
     fontWeight: '900',
     color: '#FFD966',
     textShadowColor: '#F5C518',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 18,
-    lineHeight: 72,
+    lineHeight: 84,
   },
   uploadBtn: {
     position: 'absolute',
@@ -460,7 +460,7 @@ const compose = StyleSheet.create({
     color: C.white,
     fontSize: 14,
     lineHeight: 20,
-    minHeight: 60,
+    minHeight: 120, // Ample space requested
     textAlignVertical: 'top',
   },
   hashRow: {
@@ -574,6 +574,7 @@ const plat = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
+    minHeight: 56, // tactile height requested
     gap: 12,
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(0,255,212,0.08)',
@@ -802,68 +803,70 @@ export default function HomeScreen() {
               keyboardShouldPersistTaps="handled"
             >
 
-              {/* ══ BLOQUE 1: HERO HOLOGRÁFICO ════════════════ */}
-              <View>
-                <HoloHeader
-                  onUploadPress={handleUploadPress}
-                  onInstallPress={handleInstallPress}
-                />
+              <View style={{ flex: 1 }}>
+                {/* ══ BLOQUE 1: HERO HOLOGRÁFICO ════════════════ */}
+                <View>
+                  <HoloHeader
+                    onUploadPress={handleUploadPress}
+                    onInstallPress={handleInstallPress}
+                  />
+                </View>
+
+                {/* ══ BLOQUE 1b: SELECTOR MULTIMEDIA Y FORMATO ══ */}
+                <View style={styles.mediaBlock}>
+                  <TechCorners />
+                  {selectedMedia ? (
+                    <>
+                      <MediaPreview media={selectedMedia} uploadProgress={uploadProgress} />
+                      <AspectRatioSelector />
+                    </>
+                  ) : (
+                    <MediaPicker onOpenMenu={handleUploadPress} />
+                  )}
+                </View>
+
+                {/* Separador */}
+                <View style={styles.sep} />
+
+                {/* ══ BLOQUE 2: CAJA DE REDACCIÓN ══════════════ */}
+                <View>
+                  <ComposeSection />
+                </View>
+
+                {/* Separador */}
+                <View style={styles.sep} />
+
+                {/* ══ BLOQUE 3: PLATAFORMAS ════════════════════ */}
+                <View>
+                  <PlatformsSection onSelectPlatform={(id) => setSelectedPlatformForConnect(id)} />
+                </View>
+
+                {/* Separador flex para asegurar espacio */}
+                <View style={[styles.sep, { flexGrow: 1 }]} />
               </View>
 
-              {/* ══ BLOQUE 1b: SELECTOR MULTIMEDIA Y FORMATO ══ */}
-              <View style={styles.mediaBlock}>
-                <TechCorners />
-                {selectedMedia ? (
-                  <>
-                    <MediaPreview media={selectedMedia} uploadProgress={uploadProgress} />
-                    <AspectRatioSelector />
-                  </>
-                ) : (
-                  <MediaPicker onOpenMenu={handleUploadPress} />
+              <View style={{ paddingBottom: 24 }}>
+                {/* ══ BLOQUE 4: BOTÓN PUBLICAR ═════════════════ */}
+                <View>
+                  <PublishButton onPress={onPublishClick} />
+                </View>
+
+                {/* Contador de redes */}
+                {activePlatforms.size > 0 && (
+                  <Text style={styles.netCount}>
+                    {activePlatforms.size} red{activePlatforms.size !== 1 ? 'es' : ''} sincronizada{activePlatforms.size !== 1 ? 's' : ''}
+                  </Text>
                 )}
+
+                {/* ══ FOOTER: SELLO DE AUTORÍA ═════════════════ */}
+                <View style={styles.footer}>
+                  <View style={styles.footerLine} />
+                  <Text style={styles.footerText}>
+                    Alquimio v1.0 · Creado por Israel Montás · © 2026 Todos los derechos reservados
+                  </Text>
+                  <View style={styles.footerLine} />
+                </View>
               </View>
-
-              {/* Separador */}
-              <View style={styles.sep} />
-
-              {/* ══ BLOQUE 2: CAJA DE REDACCIÓN ══════════════ */}
-              <View>
-                <ComposeSection />
-              </View>
-
-              {/* Separador */}
-              <View style={styles.sep} />
-
-              {/* ══ BLOQUE 3: PLATAFORMAS ════════════════════ */}
-              <View>
-                <PlatformsSection onSelectPlatform={(id) => setSelectedPlatformForConnect(id)} />
-              </View>
-
-              {/* Separador */}
-              <View style={styles.sep} />
-
-              {/* ══ BLOQUE 4: BOTÓN PUBLICAR ═════════════════ */}
-              <View>
-                <PublishButton onPress={onPublishClick} />
-              </View>
-
-              {/* Contador de redes */}
-              {activePlatforms.size > 0 && (
-                <Text style={styles.netCount}>
-                  {activePlatforms.size} red{activePlatforms.size !== 1 ? 'es' : ''} sincronizada{activePlatforms.size !== 1 ? 's' : ''}
-                </Text>
-              )}
-
-              {/* ══ FOOTER: SELLO DE AUTORÍA ═════════════════ */}
-              <View style={styles.footer}>
-                <View style={styles.footerLine} />
-                <Text style={styles.footerText}>
-                  Alquimio v1.0 · Creado por Israel Montás · © 2026 Todos los derechos reservados
-                </Text>
-                <View style={styles.footerLine} />
-              </View>
-
-              <View style={{ height: 24 }} />
             </ScrollView>
           </View>
         </KeyboardAvoidingView>

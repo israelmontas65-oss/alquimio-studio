@@ -36,6 +36,10 @@ export class TikTokAdapter extends BaseAdapter {
     token: string,
     onProgress?: ProgressCallback
   ): Promise<string> {
+    if (media.type === 'image') {
+      throw new Error('TikTok requiere formato de video para esta publicación.');
+    }
+
     const caption = ''; // Se añade en publish()
 
     // Inicializar el post

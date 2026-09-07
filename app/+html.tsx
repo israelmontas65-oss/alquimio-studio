@@ -45,10 +45,16 @@ export default function Root({ children }: PropsWithChildren) {
             __html: `
               * {
                 box-sizing: border-box;
+                margin: 0;
+                padding: 0;
               }
               html, body, #root {
                 height: 100%;
+                width: 100%;
+                margin: 0;
+                padding: 0;
                 background-color: #080C14;
+                overflow-x: hidden;
                 overscroll-behavior: none;
                 -webkit-tap-highlight-color: transparent;
               }

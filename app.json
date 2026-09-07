@@ -7,11 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "alquimio",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./assets/images/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0A0A0F"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -54,13 +49,22 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0A0A0F"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Alquimio necesita acceso a tu galería.",
           "cameraPermission": "Alquimio necesita acceso a tu cámara."
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
