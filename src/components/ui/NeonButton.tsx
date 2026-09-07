@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   glow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 16,
     backgroundColor: COLORS.neon.turquoise,
     opacity: 0.15,

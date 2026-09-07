@@ -13,23 +13,22 @@ import {
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
-  withSpring,
   withTiming,
   useSharedValue,
-  useEffect as useReanimatedEffect,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../../constants/colors';
 import { useMediaPicker } from '../../hooks/useMediaPicker';
+import { CloseCircleSvg } from '../ui/SocialIcons';
 import type { MediaFile } from '../../types/media.types';
 
 interface MediaPreviewProps {
   media: MediaFile;
-  uploadProgress: number; // 0–100
+  uploadProgress?: number; // 0–100
 }
 
-export function MediaPreview({ media, uploadProgress }: MediaPreviewProps) {
+export function MediaPreview({ media, uploadProgress = 0 }: MediaPreviewProps) {
   const { clearMedia } = useMediaPicker();
 
   const progressWidth = useSharedValue(0);
@@ -57,6 +56,7 @@ export function MediaPreview({ media, uploadProgress }: MediaPreviewProps) {
   const getTypeIcon = (): keyof typeof Ionicons.glyphMap => {
     if (media.type === 'video') return 'videocam';
     if (media.type === 'image') return 'image';
+    if (media.type === 'audio') return 'musical-notes';
     return 'document-text';
   };
 
@@ -105,7 +105,7 @@ export function MediaPreview({ media, uploadProgress }: MediaPreviewProps) {
 
         {/* Botón eliminar */}
         <TouchableOpacity onPress={clearMedia} style={styles.deleteBtn}>
-          <Ionicons name="close-circle" size={22} color={COLORS.status.error} />
+          <CloseCircleSvg size={22} />
         </TouchableOpacity>
       </View>
 
@@ -170,6 +170,7 @@ const badgeStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: {
+    padding: 12,
     gap: 10,
   },
   previewRow: {
@@ -187,7 +188,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.glass.borderNeon,
   },
   typeOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center',
     justifyContent: 'center',

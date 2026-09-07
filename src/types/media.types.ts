@@ -3,7 +3,7 @@
 // Tipos para archivos multimedia seleccionados
 // ============================================================
 
-export type MediaType = 'video' | 'image' | 'document';
+export type MediaType = 'video' | 'image' | 'document' | 'audio';
 
 export type AspectRatio = '9:16' | '16:9' | '1:1' | '4:5' | 'unknown';
 

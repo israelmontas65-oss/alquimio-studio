@@ -1,267 +1,337 @@
 // ============================================================
 // src/components/publish/PublishModal.tsx
-// Modal de progreso de publicación con estado por plataforma
+// Modal futurista de progreso — barras individuales por red
 // ============================================================
 
 import React from 'react';
 import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Modal,
-  ScrollView,
-  Linking,
+  View, Text, StyleSheet, Modal, TouchableOpacity,
+  ActivityIndicator, ScrollView, Linking,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  FadeIn,
-  SlideInDown,
-} from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, GRADIENTS } from '../../constants/colors';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
-import { PlatformStatus } from './PlatformStatus';
+import { PLATFORMS } from '../../constants/platforms';
+import type { PlatformPublishResult } from '../../types/platform.types';
+import {
+  TikTokSvg,
+  InstagramSvg,
+  YouTubeSvg,
+  WhatsAppSvg,
+  FacebookSvg,
+  CloseCircleSvg,
+} from '../ui/SocialIcons';
 
-export function PublishModal() {
-  const {
-    isPublishModalVisible,
-    publishSession,
-    hidePublishModal,
-    resetSession,
-  } = useAppStore();
+const PLATFORM_SVGS: Record<string, React.ComponentType<{ size?: number }>> = {
+  tiktok: TikTokSvg,
+  instagram: InstagramSvg,
+  youtube: YouTubeSvg,
+  whatsapp: WhatsAppSvg,
+  facebook: FacebookSvg,
+};
 
-  if (!publishSession) return null;
+const C = {
+  bg: '#080C14',
+  bgCard: 'rgba(8, 18, 32, 0.97)',
+  neon: '#00FFD4',
+  neonDim: 'rgba(0,255,212,0.15)',
+  neonBorder: 'rgba(0,255,212,0.55)',
+  gold: '#F5C518',
+  goldText: '#FFD966',
+  textMuted: 'rgba(255,255,255,0.40)',
+  white: '#FFFFFF',
+  green: '#00FF7F',
+  greenDim: 'rgba(0,255,127,0.1)',
+  error: '#FF4C4C',
+  errorDim: 'rgba(255,76,76,0.1)',
+};
 
-  const { status, results } = publishSession;
-  const isFinished = status === 'completed' || status === 'partial_error';
-  const successCount = results.filter((r) => r.status === 'success').length;
-  const errorCount = results.filter((r) => r.status === 'error').length;
+// ── Icono de estado ────────────────────────────────────────────
+function StatusIcon({ status }: { status: PlatformPublishResult['status'] }) {
+  switch (status) {
+    case 'idle':
+      return <Ionicons name="time-outline" size={18} color={C.textMuted} />;
+    case 'uploading':
+      return <ActivityIndicator size="small" color={C.neon} />;
+    case 'processing':
+      return <ActivityIndicator size="small" color={C.gold} />;
+    case 'success':
+      return <Ionicons name="checkmark-circle" size={18} color={C.green} />;
+    case 'error':
+      return <Ionicons name="close-circle" size={18} color={C.error} />;
+    default:
+      return <Ionicons name="time-outline" size={18} color={C.textMuted} />;
+  }
+}
 
-  const handleClose = () => {
-    if (isFinished) {
-      resetSession();
-    }
-    hidePublishModal();
-  };
+// ── Texto de estado ────────────────────────────────────────────
+function statusText(status: PlatformPublishResult['status'], progress: number): string {
+  switch (status) {
+    case 'idle':      return 'En cola...';
+    case 'uploading': return `Subiendo archivo ${progress}%`;
+    case 'processing': return 'Procesando formato...';
+    case 'success':   return '✅ Publicado con éxito';
+    case 'error':     return '❌ Error en subida';
+    default:          return 'Procesando...';
+  }
+}
 
-  const getHeaderConfig = () => {
-    if (!isFinished) {
-      return {
-        title: 'PUBLICANDO...',
-        subtitle: 'Transmitiendo a tus redes',
-        icon: 'flash',
-        color: COLORS.neon.turquoise,
-      };
-    }
-    if (status === 'completed') {
-      return {
-        title: '¡TRANSMISIÓN COMPLETA!',
-        subtitle: `${successCount} red${successCount !== 1 ? 'es' : ''} actualizada${successCount !== 1 ? 's' : ''} con éxito`,
-        icon: 'checkmark-circle',
-        color: COLORS.status.success,
-      };
-    }
-    return {
-      title: 'PUBLICACIÓN PARCIAL',
-      subtitle: `${successCount} exitosas · ${errorCount} con error`,
-      icon: 'warning',
-      color: COLORS.status.warning,
-    };
-  };
+// ── Fila individual de plataforma ──────────────────────────────
+function PlatformProgressRow({ result }: { result: PlatformPublishResult }) {
+  const pInfo = Object.values(PLATFORMS).find((p: any) => p.id === result.platformId) as any;
+  if (!pInfo) return null;
 
-  const header = getHeaderConfig();
+  const isSuccess = result.status === 'success';
+  const isError   = result.status === 'error';
+  const isActive  = result.status === 'uploading' || result.status === 'processing';
+
+  const barColor = isSuccess ? C.green : isError ? C.error : C.neon;
+  const rowBg = isSuccess ? C.greenDim : isError ? C.errorDim : C.neonDim;
+
+  const SvgIcon = PLATFORM_SVGS[result.platformId];
 
   return (
-    <Modal
-      visible={isPublishModalVisible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={handleClose}
-    >
-      <View style={styles.overlay}>
-        <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+    <View style={[row.wrap, { backgroundColor: rowBg }]}>
+      {/* Icono Oficial SVG */}
+      <View style={[row.icon, { backgroundColor: pInfo.iconColor + '22' }]}>
+        {SvgIcon ? <SvgIcon size={20} /> : <Ionicons name={pInfo.iconName} size={18} color={pInfo.iconColor} />}
+      </View>
 
-        <Animated.View
-          entering={SlideInDown.springify().damping(18).stiffness(120)}
-          style={styles.sheet}
-        >
-          {/* Barra superior decorativa */}
-          <View style={styles.sheetBar} />
+      {/* Contenido */}
+      <View style={row.content}>
+        <View style={row.topLine}>
+          <Text style={row.name}>{pInfo.name}</Text>
+          <StatusIcon status={result.status} />
+        </View>
 
-          {/* Header con gradiente */}
-          <LinearGradient
-            colors={
-              isFinished && status === 'completed'
-                ? ['rgba(0,230,118,0.12)', 'transparent']
-                : isFinished
-                ? ['rgba(255,179,71,0.12)', 'transparent']
-                : [COLORS.neon.turquoiseGlow, 'transparent']
-            }
-            style={styles.headerGradient}
+        <Text style={[
+          row.status,
+          isSuccess && { color: C.green },
+          isError   && { color: C.error },
+          isActive  && { color: C.neon },
+        ]}>
+          {statusText(result.status, result.progress)}
+        </Text>
+
+        {/* Barra de progreso individual */}
+        <View style={row.barBg}>
+          <View style={[
+            row.barFill,
+            { width: `${result.progress}%`, backgroundColor: barColor },
+          ]} />
+        </View>
+
+        {/* Enlace de confirmación */}
+        {isSuccess && result.postUrl && (
+          <TouchableOpacity
+            onPress={() => Linking.openURL(result.postUrl!)}
+            style={row.linkBtn}
           >
-            <View style={styles.headerIconWrap}>
-              <Ionicons
-                name={header.icon as keyof typeof Ionicons.glyphMap}
-                size={32}
-                color={header.color}
-              />
+            <Ionicons name="open-outline" size={11} color={C.neon} />
+            <Text style={row.linkText}>Ver publicación →</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Mensaje de error */}
+        {isError && result.errorMessage && (
+          <Text style={row.errorMsg} numberOfLines={1}>{result.errorMessage}</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// ── Modal principal ────────────────────────────────────────────
+export function PublishModal() {
+  const { isPublishModalVisible, publishSession, resetSession } = useAppStore();
+
+  if (!isPublishModalVisible || !publishSession) return null;
+
+  const total      = publishSession.results.length;
+  const avgProgress = total === 0
+    ? 0
+    : publishSession.results.reduce((a, r) => a + r.progress, 0) / total;
+  const isDone     = publishSession.status === 'completed' || publishSession.status === 'partial_error';
+  const successCount = publishSession.results.filter(r => r.status === 'success').length;
+  const errorCount   = publishSession.results.filter(r => r.status === 'error').length;
+
+  return (
+    <Modal visible={isPublishModalVisible} transparent animationType="slide">
+      <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFill}>
+        <View style={s.overlay}>
+          <View style={s.card}>
+
+            {/* TechCorners */}
+            <View style={s.tlCorner} /><View style={s.trCorner} />
+            <View style={s.blCorner} /><View style={s.brCorner} />
+
+            {/* ── Header ── */}
+            <View style={s.header}>
+              <View style={s.headerLeft}>
+                <Text style={s.title}>ALQUIMIA TRANSMISOR</Text>
+                <Text style={s.subtitle}>
+                  {isDone
+                    ? `${successCount}/${total} redes publicadas`
+                    : `Sincronizando ${total} redes...`}
+                </Text>
+              </View>
+              {isDone && (
+                <TouchableOpacity onPress={resetSession} style={s.closeBtn}>
+                  <CloseCircleSvg size={22} />
+                </TouchableOpacity>
+              )}
             </View>
-            <Text style={[styles.headerTitle, { color: header.color }]}>
-              {header.title}
-            </Text>
-            <Text style={styles.headerSubtitle}>{header.subtitle}</Text>
-          </LinearGradient>
 
-          {/* Divisor neón */}
-          <View style={[styles.divider, { backgroundColor: header.color + '33' }]} />
-
-          {/* Lista de estados por plataforma */}
-          <ScrollView
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {results.map((result) => (
-              <PlatformStatus key={result.platformId} result={result} />
-            ))}
-          </ScrollView>
-
-          {/* Acciones finales */}
-          {isFinished && (
-            <Animated.View entering={FadeIn.delay(400)} style={styles.actions}>
-              {/* Links a posts exitosos */}
-              {results
-                .filter((r) => r.status === 'success' && r.postUrl)
-                .map((r) => (
-                  <TouchableOpacity
-                    key={r.platformId}
-                    onPress={() => r.postUrl && Linking.openURL(r.postUrl)}
-                    style={styles.linkBtn}
-                  >
-                    <Ionicons
-                      name="open-outline"
-                      size={12}
-                      color={COLORS.neon.turquoise}
-                    />
-                    <Text style={styles.linkText}>Ver en {r.platformId}</Text>
-                  </TouchableOpacity>
-                ))}
-
-              <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
+            {/* ── Progreso Global ── */}
+            <View style={s.globalWrap}>
+              <View style={s.globalTop}>
+                <Text style={s.globalLabel}>Progreso Total</Text>
+                <Text style={[
+                  s.globalValue,
+                  isDone && successCount === total && { color: C.green },
+                  errorCount > 0 && errorCount === total && { color: C.error },
+                ]}>
+                  {Math.round(avgProgress)}%
+                </Text>
+              </View>
+              <View style={s.globalBarBg}>
                 <LinearGradient
-                  colors={GRADIENTS.publishButton}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.closeBtnGradient}
+                  colors={
+                    isDone && errorCount > 0
+                      ? [C.errorDim, C.error]
+                      : [C.neonDim, C.neon]
+                  }
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={[s.globalBarFill, { width: `${Math.round(avgProgress)}%` }]}
+                />
+              </View>
+            </View>
+
+            {/* ── Lista de plataformas ── */}
+            <ScrollView
+              style={s.list}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ gap: 10 }}
+            >
+              {publishSession.results.map((r) => (
+                <PlatformProgressRow key={r.platformId} result={r} />
+              ))}
+            </ScrollView>
+
+            {/* ── Botón Finalizar ── */}
+            {isDone && (
+              <TouchableOpacity onPress={resetSession} style={s.doneBtn} activeOpacity={0.85}>
+                <LinearGradient
+                  colors={[C.neonBorder, 'rgba(0,255,212,0.25)', C.neonBorder]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={s.doneBtnGradient}
                 >
-                  <Text style={styles.closeBtnText}>
-                    {status === 'completed' ? 'PERFECTO 🔥' : 'ENTENDIDO'}
-                  </Text>
+                  <View style={s.doneBtnInner}>
+                    <Ionicons name="checkmark-done-outline" size={18} color={C.neon} />
+                    <Text style={s.doneBtnText}>LISTO</Text>
+                  </View>
                 </LinearGradient>
               </TouchableOpacity>
-            </Animated.View>
-          )}
-        </Animated.View>
-      </View>
+            )}
+
+            {/* Footer autoría */}
+            <Text style={s.footer}>Alquimio · Israel Montás · © 2026</Text>
+          </View>
+        </View>
+      </BlurView>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
+// ── Estilos filas ──────────────────────────────────────────────
+const CORNER = 12;
+const row = StyleSheet.create({
+  wrap: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,255,212,0.12)',
+    padding: 12,
+    gap: 10,
+  },
+  icon: {
+    width: 38,
+    height: 38,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: { flex: 1, gap: 4 },
+  topLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  name: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+  status: { color: 'rgba(255,255,255,0.45)', fontSize: 11, fontWeight: '500' },
+  barBg: { height: 3, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 2, overflow: 'hidden', marginTop: 4 },
+  barFill: { height: '100%', borderRadius: 2 },
+  linkBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  linkText: { color: '#00FFD4', fontSize: 11, fontWeight: '600' },
+  errorMsg: { color: '#FF8080', fontSize: 11, marginTop: 3 },
+});
+
+// ── Estilos modal ──────────────────────────────────────────────
+const s = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(8,12,20,0.6)',
   },
-  sheet: {
-    backgroundColor: COLORS.bg.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.glass.borderNeon,
-    maxHeight: '80%',
-    paddingBottom: 36,
-    shadowColor: COLORS.neon.turquoise,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 24,
-  },
-  sheetBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.glass.border,
+  card: {
+    backgroundColor: C.bgCard,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderColor: C.neonBorder,
+    borderBottomWidth: 0,
+    padding: 24,
+    paddingBottom: 32,
+    maxHeight: '85%',
+    position: 'relative',
+    shadowColor: C.neon,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 25,
+    width: '100%',
+    maxWidth: 500,
     alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 4,
   },
-  headerGradient: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    gap: 6,
+  tlCorner: { position: 'absolute', top: 0, left: 0, width: CORNER, height: CORNER, borderTopWidth: 1.5, borderLeftWidth: 1.5, borderColor: C.neon, borderTopLeftRadius: 20 },
+  trCorner: { position: 'absolute', top: 0, right: 0, width: CORNER, height: CORNER, borderTopWidth: 1.5, borderRightWidth: 1.5, borderColor: C.neon, borderTopRightRadius: 20 },
+  blCorner: { position: 'absolute', bottom: 0, left: 0, width: CORNER, height: CORNER, borderBottomWidth: 1.5, borderLeftWidth: 1.5, borderColor: 'rgba(0,255,212,0.15)' },
+  brCorner: { position: 'absolute', bottom: 0, right: 0, width: CORNER, height: CORNER, borderBottomWidth: 1.5, borderRightWidth: 1.5, borderColor: 'rgba(0,255,212,0.15)' },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
   },
-  headerIconWrap: {
-    marginBottom: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 2,
-  },
-  headerSubtitle: {
-    color: COLORS.text.secondary,
-    fontSize: 13,
-  },
-  divider: {
-    height: 1,
-    marginHorizontal: 24,
-  },
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    gap: 2,
-  },
-  actions: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    gap: 10,
-  },
-  linkBtn: {
+  headerLeft: { flex: 1 },
+  title: { color: C.neon, fontSize: 16, fontWeight: '800', letterSpacing: 2 },
+  subtitle: { color: C.textMuted, fontSize: 12, marginTop: 3, letterSpacing: 0.5 },
+  closeBtn: { padding: 2 },
+  globalWrap: { marginBottom: 20 },
+  globalTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  globalLabel: { color: C.white, fontSize: 13, fontWeight: '600' },
+  globalValue: { color: C.neon, fontSize: 13, fontWeight: '800' },
+  globalBarBg: { height: 7, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 4, overflow: 'hidden' },
+  globalBarFill: { height: '100%', borderRadius: 4 },
+  list: { marginBottom: 20 },
+  doneBtn: { borderRadius: 8, overflow: 'hidden', marginBottom: 12 },
+  doneBtnGradient: { padding: 1.5, borderRadius: 8 },
+  doneBtnInner: {
+    backgroundColor: 'rgba(8,18,32,0.96)',
+    borderRadius: 7,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
+    justifyContent: 'center',
+    gap: 8,
   },
-  linkText: {
-    color: COLORS.neon.turquoise,
-    fontSize: 12,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
-  closeBtn: {
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  closeBtnGradient: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  closeBtnText: {
-    color: COLORS.bg.deepBlack,
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 2,
-  },
+  doneBtnText: { color: C.white, fontSize: 14, fontWeight: '800', letterSpacing: 3 },
+  footer: { color: 'rgba(255,255,255,0.18)', fontSize: 9.5, textAlign: 'center', letterSpacing: 0.3 },
 });

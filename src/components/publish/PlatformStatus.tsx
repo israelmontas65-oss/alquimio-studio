@@ -10,7 +10,6 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSpring,
-  useEffect as useReanimatedEffect,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';

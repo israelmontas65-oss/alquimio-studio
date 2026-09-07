@@ -22,6 +22,8 @@ export interface PublishPayload {
   media: MediaFile;
   activePlatforms: PlatformId[];
   platformSettings: Partial<Record<PlatformId, PlatformCustomSettings>>;
+  aspectRatio?: string;
+  fitMode?: string;
   scheduledAt?: Date;       // Para publicación programada (futuro)
 }
 

@@ -18,6 +18,7 @@ import {
   Platform,
   Dimensions,
   ImageBackground,
+  ActivityIndicator,
 } from 'react-native';
 import Animated, {
   FadeIn,
@@ -31,18 +32,32 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 
+import { Alert } from 'react-native';
 import { useAppStore } from '../store/useAppStore';
 import { usePublish } from '../hooks/usePublish';
 import { PublishModal } from '../components/publish/PublishModal';
 import { MediaPicker } from '../components/media/MediaPicker';
 import { MediaPreview } from '../components/media/MediaPreview';
+import { UploadMenuModal } from '../components/media/UploadMenuModal';
+import { AspectRatioSelector } from '../components/media/AspectRatioSelector';
+import { ConnectAccountModal } from '../components/auth/ConnectAccountModal';
 import { verifyAppIntegrity } from '../security/authorSignature';
+import {
+  TikTokSvg,
+  InstagramSvg,
+  YouTubeSvg,
+  WhatsAppSvg,
+  FacebookSvg,
+  CloudUploadSvg,
+} from '../components/ui/SocialIcons';
+import type { PlatformId } from '../types/platform.types';
 
 const { width: W, height: H } = Dimensions.get('window');
+const EMBLEM_SIZE = 190;
+const EMBLEM_RADIUS = EMBLEM_SIZE / 2;
 
 // ─────────────────────────────────────────────
 // Paleta (referencia visual)
@@ -69,12 +84,18 @@ const C = {
 // ─────────────────────────────────────────────
 type PlatId = 'tiktok' | 'instagram' | 'youtube' | 'whatsapp' | 'facebook';
 
-const PLATFORMS: { id: PlatId; label: string; sub: string; color: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { id: 'tiktok',    label: 'TikTok',             sub: 'Francia',   color: '#FFFFFF', icon: 'musical-notes' },
-  { id: 'instagram', label: 'Instagram Reels',    sub: '@alquimio', color: '#E1306C', icon: 'logo-instagram' },
-  { id: 'youtube',   label: 'YouTube Shorts',     sub: '@alquimio', color: '#FF0000', icon: 'logo-youtube' },
-  { id: 'whatsapp',  label: 'WhatsApp (Business)',sub: '@alquimio', color: '#25D366', icon: 'logo-whatsapp' },
-  { id: 'facebook',  label: 'Facebook',           sub: '@alquimio', color: '#1877F2', icon: 'logo-facebook' },
+const PLATFORMS: {
+  id: PlatId;
+  label: string;
+  sub: string;
+  color: string;
+  SvgIcon: React.ComponentType<{ size?: number }>;
+}[] = [
+  { id: 'tiktok',    label: 'TikTok',                   sub: 'Francia',   color: '#FFFFFF', SvgIcon: TikTokSvg },
+  { id: 'instagram', label: 'Reels de Instagram',       sub: '@alquimio', color: '#E1306C', SvgIcon: InstagramSvg },
+  { id: 'youtube',   label: 'Cortometrajes de YouTube', sub: '@alquimio', color: '#FF0000', SvgIcon: YouTubeSvg },
+  { id: 'whatsapp',  label: 'WhatsApp (Empresas)',      sub: '@alquimio', color: '#25D366', SvgIcon: WhatsAppSvg },
+  { id: 'facebook',  label: 'Facebook',                 sub: '@alquimio', color: '#1877F2', SvgIcon: FacebookSvg },
 ];
 
 // ─────────────────────────────────────────────
@@ -102,34 +123,13 @@ function TechCorners({ color = C.neonBorder, size = 12 }: { color?: string; size
 // ─────────────────────────────────────────────
 // Hero holográfico – cabecera principal
 // ─────────────────────────────────────────────
-function HoloHeader({ onUploadPress }: { onUploadPress: () => void }) {
-  const pulse = useSharedValue(1);
-  const rotate = useSharedValue(0);
-
-  React.useEffect(() => {
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(1.06, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
-        withTiming(1.00, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
-      ),
-      -1,
-      false
-    );
-    rotate.value = withRepeat(
-      withTiming(360, { duration: 8000, easing: Easing.linear }),
-      -1,
-      false
-    );
-  }, []);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
-  }));
-
-  const rotateStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotate.value}deg` }],
-  }));
-
+function HoloHeader({
+  onUploadPress,
+  onInstallPress,
+}: {
+  onUploadPress: () => void;
+  onInstallPress: () => void;
+}) {
   return (
     <View style={hero.container}>
       {/* Fondo con gradiente cósmico */}
@@ -146,57 +146,44 @@ function HoloHeader({ onUploadPress }: { onUploadPress: () => void }) {
       {/* Nombre holográfico "Alquimia" */}
       <Text style={hero.brandName}>Alquimia</Text>
 
-      {/* Anillo exterior rotatorio */}
-      <Animated.View style={[hero.ringOuter, rotateStyle]}>
+      {/* Anillo exterior cian con nodos orbitales */}
+      <View style={hero.ringOuter}>
         {[0, 60, 120, 180, 240, 300].map((deg) => (
           <View key={deg} style={[hero.ringDot, {
             transform: [
               { rotate: `${deg}deg` },
-              { translateY: -(W * 0.28) },
+              { translateY: -EMBLEM_RADIUS },
             ],
           }]} />
         ))}
-      </Animated.View>
+      </View>
 
-      {/* Anillo interior contra-rotatorio */}
-      <Animated.View style={[hero.ringInner, {
-        transform: [{ rotate: `${-rotate.value}deg` }] as any,
-      }]}>
-        {[45, 135, 225, 315].map((deg) => (
-          <View key={deg} style={[hero.ringDotSmall, {
-            transform: [
-              { rotate: `${deg}deg` },
-              { translateY: -(W * 0.185) },
-            ],
-          }]} />
-        ))}
-      </Animated.View>
+      {/* Anillo interior dorado */}
+      <View style={hero.ringInner} />
 
-      {/* Letra A holográfica central */}
-      <Animated.View style={[hero.letterWrap, pulseStyle]}>
-        {/* Halo dorado */}
+      {/* Centro: halo + letra A — posicionados absolutamente sobre los anillos */}
+      <View style={hero.emblemCenter}>
         <View style={hero.letterHalo} />
         <Text style={hero.letterA}>A</Text>
-      </Animated.View>
+      </View>
 
-      {/* Botón "Upload & Distribute" */}
+      {/* Botón "Subir y distribuir" */}
       <TouchableOpacity onPress={onUploadPress} style={hero.uploadBtn} activeOpacity={0.8}>
-        <LinearGradient
-          colors={['rgba(0,255,212,0.08)', 'rgba(0,255,212,0.04)']}
-          style={hero.uploadBtnInner}
-        >
+        <View style={hero.uploadBtnInner}>
           <TechCorners size={8} />
-          <Ionicons name="cloud-upload-outline" size={13} color={C.neon} />
-          <Text style={hero.uploadLabel}>Upload & Distribute</Text>
-        </LinearGradient>
+          <CloudUploadSvg size={14} color={C.neon} />
+          <Text style={hero.uploadLabel}>Subir y distribuir</Text>
+        </View>
       </TouchableOpacity>
 
-      {/* Indicadores esquina superior */}
+      {/* HUD esquinas */}
       <View style={hero.topLeft}>
-        <Text style={hero.hud}>BIO</Text>
+        <Text style={hero.hud}>SYS.ONLINE</Text>
       </View>
-      <TouchableOpacity style={hero.topRight}>
-        <Ionicons name="settings-outline" size={18} color={C.textDim} />
+      <TouchableOpacity onPress={onInstallPress} style={hero.topRight} activeOpacity={0.75}>
+        <View style={hero.pwaBadge}>
+          <Text style={hero.pwaText}>⬇ INSTALAR PWA</Text>
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -205,136 +192,146 @@ function HoloHeader({ onUploadPress }: { onUploadPress: () => void }) {
 const hero = StyleSheet.create({
   container: {
     width: '100%',
-    height: H * 0.34,
+    height: 270,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     position: 'relative',
+    backgroundColor: '#080C14',
   },
   brandName: {
     position: 'absolute',
-    top: 18,
+    top: 14,
+    alignSelf: 'center',
     fontStyle: 'italic',
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '800',
-    color: C.goldText,
-    textShadowColor: C.gold,
+    color: '#FFD966',
+    textShadowColor: '#F5C518',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 14,
+    textShadowRadius: 16,
     letterSpacing: 2,
     zIndex: 10,
   },
   circuit1: {
     position: 'absolute', left: 0, top: '30%',
-    width: '30%', height: 1, backgroundColor: C.circuitLine,
+    width: '28%', height: 1, backgroundColor: 'rgba(0,255,212,0.12)',
   },
   circuit2: {
-    position: 'absolute', right: 0, top: '45%',
-    width: '25%', height: 1, backgroundColor: C.circuitLine,
+    position: 'absolute', right: 0, top: '50%',
+    width: '22%', height: 1, backgroundColor: 'rgba(0,255,212,0.12)',
   },
   circuit3: {
-    position: 'absolute', left: '15%', bottom: '25%',
-    width: '20%', height: 1, backgroundColor: C.circuitLine,
+    position: 'absolute', left: '12%', bottom: '22%',
+    width: '18%', height: 1, backgroundColor: 'rgba(0,255,212,0.12)',
   },
+  // Anillo exterior cian
   ringOuter: {
     position: 'absolute',
-    width: W * 0.56,
-    height: W * 0.56,
-    borderRadius: W * 0.28,
-    borderWidth: 1,
-    borderColor: 'rgba(0,255,212,0.25)',
+    width: EMBLEM_SIZE,
+    height: EMBLEM_SIZE,
+    borderRadius: EMBLEM_RADIUS,
+    borderWidth: 1.2,
+    borderColor: 'rgba(0,255,212,0.30)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Anillo interior dorado
   ringInner: {
     position: 'absolute',
-    width: W * 0.37,
-    height: W * 0.37,
-    borderRadius: W * 0.185,
+    width: EMBLEM_SIZE * 0.68,
+    height: EMBLEM_SIZE * 0.68,
+    borderRadius: (EMBLEM_SIZE * 0.68) / 2,
     borderWidth: 1,
-    borderColor: 'rgba(245,197,24,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: 'rgba(245,197,24,0.30)',
   },
   ringDot: {
     position: 'absolute',
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: C.neon,
-    shadowColor: C.neon,
-    shadowRadius: 4,
-    shadowOpacity: 0.9,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#00FFD4',
+    shadowColor: '#00FFD4',
+    shadowRadius: 5,
+    shadowOpacity: 1,
     elevation: 4,
   },
-  ringDotSmall: {
+  // Centro del emblema (sobre los anillos)
+  emblemCenter: {
     position: 'absolute',
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: C.gold,
-    shadowColor: C.gold,
-    shadowRadius: 3,
-    shadowOpacity: 0.9,
-    elevation: 3,
-  },
-  letterWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    width: 100,
+    height: 100,
   },
   letterHalo: {
     position: 'absolute',
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: C.goldGlow,
-    shadowColor: C.gold,
-    shadowRadius: 30,
-    shadowOpacity: 0.7,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: 'rgba(245,197,24,0.18)',
+    shadowColor: '#F5C518',
+    shadowRadius: 28,
+    shadowOpacity: 0.8,
     elevation: 10,
   },
   letterA: {
-    fontSize: 70,
+    fontSize: 64,
     fontWeight: '900',
-    color: C.goldText,
-    textShadowColor: C.gold,
+    color: '#FFD966',
+    textShadowColor: '#F5C518',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
-    lineHeight: 80,
+    textShadowRadius: 18,
+    lineHeight: 72,
   },
   uploadBtn: {
     position: 'absolute',
-    bottom: 16,
+    bottom: 14,
     alignSelf: 'center',
   },
   uploadBtnInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingVertical: 7,
-    borderRadius: 4,
-    borderWidth: 0.5,
-    borderColor: C.neonBorder,
+    gap: 7,
+    paddingHorizontal: 22,
+    paddingVertical: 8,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(0,255,212,0.55)',
+    backgroundColor: 'rgba(0,255,212,0.05)',
+    position: 'relative',
   },
   uploadLabel: {
-    color: C.neon,
+    color: '#00FFD4',
     fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1,
+    fontWeight: '700',
+    letterSpacing: 1.2,
   },
   topLeft: {
-    position: 'absolute', top: 16, left: 16,
+    position: 'absolute', top: 14, left: 14,
   },
   topRight: {
-    position: 'absolute', top: 14, right: 16,
+    position: 'absolute', top: 14, right: 14,
   },
   hud: {
-    color: C.textMuted,
-    fontSize: 10,
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 9,
     fontWeight: '700',
     letterSpacing: 2,
+  },
+  pwaBadge: {
+    backgroundColor: 'rgba(0, 255, 212, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 0.8,
+    borderColor: 'rgba(0, 255, 212, 0.5)',
+  },
+  pwaText: {
+    color: '#00FFD4',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
 });
 
@@ -342,33 +339,66 @@ const hero = StyleSheet.create({
 // Caja de redacción táctica
 // ─────────────────────────────────────────────
 function ComposeSection() {
-  const { caption, hashtags, setCaption, addHashtag } = useAppStore();
+  const { caption, hashtags, setCaption, addHashtag, removeHashtag, clearHashtags, aiLoading, setAiLoading, selectedMedia } = useAppStore();
   const [hashInput, setHashInput] = useState('');
   const EMOJIS = ['😊', '🔥', '🚀', '💡', '✨', '🎯', '💎', '⚡'];
+
+  const handleOptimize = async () => {
+    if (!caption.trim()) return;
+    setAiLoading(true);
+    const mediaType = selectedMedia ? selectedMedia.type : 'video';
+    const { generateSmartCaptions } = await import('../services/aiService');
+    const result = await generateSmartCaptions(caption, mediaType);
+    setCaption(result.caption);
+    clearHashtags();
+    result.hashtags.forEach(addHashtag);
+    setAiLoading(false);
+  };
 
   return (
     <View style={compose.wrapper}>
       <TechCorners color={C.neonBorder} size={14} />
+      
+      {/* Botón IA */}
+      <View style={compose.aiHeader}>
+        <TouchableOpacity 
+          onPress={handleOptimize} 
+          disabled={aiLoading || !caption.trim()}
+          style={[compose.aiBtn, (!caption.trim() || aiLoading) && compose.aiBtnDisabled]}
+        >
+          {aiLoading ? (
+            <ActivityIndicator size="small" color={C.gold} />
+          ) : (
+            <>
+              <Text style={compose.aiIcon}>✨</Text>
+              <Text style={compose.aiText}>Optimizar con IA</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
       <TextInput
         value={caption}
         onChangeText={setCaption}
-        placeholder="¡Tu secreto para escalar los resultados! 🚀"
+        placeholder="Escribe tu idea y usa IA para viralizarla... 🚀"
         placeholderTextColor={C.textMuted}
         multiline
         maxLength={500}
         style={compose.input}
       />
 
-      {/* Hashtags chips */}
+      {/* Hashtags chips con opción de eliminar al tocar */}
       {hashtags.length > 0 && (
         <View style={compose.hashRow}>
           {hashtags.map((h, i) => (
-            <Text key={i} style={compose.hashChip}>#{h}</Text>
+            <TouchableOpacity key={i} onPress={() => removeHashtag(h)} activeOpacity={0.7}>
+              <Text style={compose.hashChip}>{h} ✕</Text>
+            </TouchableOpacity>
           ))}
         </View>
       )}
 
-      {/* Input de hashtags */}
+      {/* Input de hashtags con botón rápido */}
       <View style={compose.hashInputRow}>
         <Text style={compose.hashPrefix}>#</Text>
         <TextInput
@@ -385,6 +415,17 @@ function ComposeSection() {
           }}
           returnKeyType="done"
         />
+        {hashInput.trim().length > 0 && (
+          <TouchableOpacity
+            onPress={() => {
+              addHashtag(hashInput.trim());
+              setHashInput('');
+            }}
+            style={compose.addBtn}
+          >
+            <Text style={compose.addBtnText}>+ Añadir</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Emojis rápidos */}
@@ -406,10 +447,15 @@ const compose = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: C.neonBorder,
     padding: 14,
-    marginHorizontal: 12,
+    marginHorizontal: 16,
     position: 'relative',
     gap: 8,
   },
+  aiHeader: { alignItems: 'flex-end', marginBottom: -4 },
+  aiBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(245, 197, 24, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: C.gold, gap: 4 },
+  aiBtnDisabled: { opacity: 0.4, borderColor: C.textMuted },
+  aiIcon: { fontSize: 12 },
+  aiText: { color: C.goldText, fontSize: 11, fontWeight: '700' },
   input: {
     color: C.white,
     fontSize: 14,
@@ -426,6 +472,12 @@ const compose = StyleSheet.create({
     color: C.neon,
     fontSize: 12,
     fontWeight: '600',
+    backgroundColor: 'rgba(0,255,212,0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,255,212,0.25)',
   },
   hashInputRow: {
     flexDirection: 'row',
@@ -433,6 +485,7 @@ const compose = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: C.neonDim,
     paddingTop: 8,
+    gap: 6,
   },
   hashPrefix: {
     color: C.neon,
@@ -445,6 +498,19 @@ const compose = StyleSheet.create({
     color: C.white,
     fontSize: 13,
     paddingVertical: 2,
+  },
+  addBtn: {
+    backgroundColor: 'rgba(0,255,212,0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 0.8,
+    borderColor: C.neonBorder,
+  },
+  addBtnText: {
+    color: C.neon,
+    fontSize: 11,
+    fontWeight: '700',
   },
   emojiRow: {
     flexDirection: 'row',
@@ -461,24 +527,31 @@ const compose = StyleSheet.create({
 // Fila de plataforma
 // ─────────────────────────────────────────────
 function PlatformRow({
-  label, sub, color, icon, isActive, onToggle,
+  label, sub, color, SvgIcon, isActive, onToggle, onRowPress,
 }: {
   label: string; sub: string; color: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  isActive: boolean; onToggle: () => void;
+  SvgIcon: React.ComponentType<{ size?: number }>;
+  isActive: boolean; onToggle: () => void; onRowPress: () => void;
 }) {
   return (
     <View style={plat.row}>
-      {/* Icono */}
-      <View style={[plat.iconWrap, { backgroundColor: color + '22', borderColor: color + '44' }]}>
-        <Ionicons name={icon} size={18} color={color} />
-      </View>
+      {/* Área interactiva para vincular/configurar cuenta */}
+      <TouchableOpacity
+        onPress={onRowPress}
+        activeOpacity={0.7}
+        style={plat.touchArea}
+      >
+        {/* Icono SVG Oficial */}
+        <View style={[plat.iconWrap, { backgroundColor: color + '15', borderColor: color + '44' }]}>
+          <SvgIcon size={22} />
+        </View>
 
-      {/* Texto */}
-      <View style={plat.textWrap}>
-        <Text style={plat.label}>{label}</Text>
-        <Text style={plat.sub}>{sub}</Text>
-      </View>
+        {/* Texto */}
+        <View style={plat.textWrap}>
+          <Text style={plat.label}>{label}</Text>
+          <Text style={plat.sub}>{sub}</Text>
+        </View>
+      </TouchableOpacity>
 
       {/* Toggle estilo referencia — verde neón */}
       <Switch
@@ -487,7 +560,7 @@ function PlatformRow({
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           onToggle();
         }}
-        trackColor={{ false: 'rgba(255,255,255,0.12)', true: C.green }}
+        trackColor={{ false: 'rgba(255,255,255,0.12)', true: '#00FF7F' }}
         thumbColor={isActive ? '#FFFFFF' : 'rgba(255,255,255,0.5)'}
         ios_backgroundColor="rgba(255,255,255,0.12)"
         style={plat.switch}
@@ -505,10 +578,16 @@ const plat = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(0,255,212,0.08)',
   },
+  touchArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 9,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -522,23 +601,33 @@ const plat = StyleSheet.create({
 // ─────────────────────────────────────────────
 // Sección "Plataformas Sincronizadas"
 // ─────────────────────────────────────────────
-function PlatformsSection() {
-  const { activePlatforms, togglePlatform } = useAppStore();
+function PlatformsSection({ onSelectPlatform }: { onSelectPlatform: (id: PlatformId) => void }) {
+  const { activePlatforms, togglePlatform, platformHandles } = useAppStore();
+  
   return (
     <View style={pSection.wrapper}>
       <TechCorners color={C.neonBorder} size={14} />
-      <Text style={pSection.title}>Plataformas Sincronizadas</Text>
-      {PLATFORMS.map((p) => (
-        <PlatformRow
-          key={p.id}
-          label={p.label}
-          sub={p.sub}
-          color={p.color}
-          icon={p.icon}
-          isActive={activePlatforms.has(p.id as any)}
-          onToggle={() => togglePlatform(p.id as any)}
-        />
-      ))}
+      <View style={pSection.headerRow}>
+        <Text style={pSection.title}>Plataformas Sincronizadas</Text>
+        <Text style={pSection.hint}>Toca una red para configurar</Text>
+      </View>
+      {PLATFORMS.map((p) => {
+        const isActive = activePlatforms.has(p.id as PlatformId);
+        const customSub = platformHandles[p.id as PlatformId] || p.sub;
+
+        return (
+          <PlatformRow
+            key={p.id}
+            label={p.label}
+            sub={customSub}
+            color={p.color}
+            SvgIcon={p.SvgIcon}
+            isActive={isActive}
+            onToggle={() => togglePlatform(p.id as PlatformId)}
+            onRowPress={() => onSelectPlatform(p.id as PlatformId)}
+          />
+        );
+      })}
     </View>
   );
 }
@@ -552,14 +641,25 @@ const pSection = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 6,
-    marginHorizontal: 12,
+    marginHorizontal: 16,
     position: 'relative',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   title: {
     color: C.white,
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 4,
+    letterSpacing: 0.3,
+  },
+  hint: {
+    color: C.neon,
+    fontSize: 10,
+    fontWeight: '600',
     letterSpacing: 0.3,
   },
 });
@@ -567,29 +667,24 @@ const pSection = StyleSheet.create({
 // ─────────────────────────────────────────────
 // Botón PUBLICAR EN BLOQUE
 // ─────────────────────────────────────────────
-function PublishButton({ onPress, disabled }: { onPress: () => void; disabled: boolean }) {
+function PublishButton({ onPress }: { onPress: () => void }) {
   return (
     <TouchableOpacity
       onPress={onPress}
-      disabled={disabled}
       activeOpacity={0.8}
-      style={[pubBtn.outer, disabled && pubBtn.disabled]}
+      style={pubBtn.outer}
     >
       {/* Borde brillante con gradiente */}
       <LinearGradient
-        colors={disabled
-          ? ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.05)']
-          : [C.neonBorder, 'rgba(0,255,212,0.3)', C.neonBorder]}
+        colors={[C.neonBorder, 'rgba(0,255,212,0.35)', C.neonBorder]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={pubBtn.gradient}
       >
-        <TechCorners color={disabled ? 'rgba(255,255,255,0.15)' : C.neon} size={10} />
+        <TechCorners color={C.neon} size={10} />
         <View style={pubBtn.inner}>
-          {!disabled && (
-            <Text style={pubBtn.glow}>⚡</Text>
-          )}
-          <Text style={[pubBtn.label, disabled && pubBtn.labelDisabled]}>
+          <Text style={pubBtn.glow}>⚡</Text>
+          <Text style={pubBtn.label}>
             PUBLICAR EN BLOQUE
           </Text>
         </View>
@@ -600,7 +695,7 @@ function PublishButton({ onPress, disabled }: { onPress: () => void; disabled: b
 
 const pubBtn = StyleSheet.create({
   outer: {
-    marginHorizontal: 12,
+    marginHorizontal: 16,
     borderRadius: 6,
     overflow: 'hidden',
     shadowColor: '#00FFD4',
@@ -608,10 +703,6 @@ const pubBtn = StyleSheet.create({
     shadowOpacity: 0.6,
     shadowRadius: 12,
     elevation: 8,
-  },
-  disabled: {
-    shadowOpacity: 0,
-    elevation: 0,
   },
   gradient: {
     padding: 1.5,
@@ -633,9 +724,6 @@ const pubBtn = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 3,
   },
-  labelDisabled: {
-    color: 'rgba(255,255,255,0.35)',
-  },
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -643,19 +731,56 @@ const pubBtn = StyleSheet.create({
 // ════════════════════════════════════════════════════════════════
 export default function HomeScreen() {
   const { selectedMedia, uploadProgress, activePlatforms } = useAppStore();
-  const { canPublish, handlePublish } = usePublish();
+  const { handlePublish } = usePublish();
   const scrollRef = useRef<ScrollView>(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [selectedPlatformForConnect, setSelectedPlatformForConnect] = useState<PlatformId | null>(null);
+  const [pwaPrompt, setPwaPrompt] = useState<any>(null);
 
   React.useEffect(() => {
     if (!verifyAppIntegrity()) {
       console.warn('Alerta de Integridad: Firma de autoría no válida.');
+    }
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const handler = (e: any) => {
+        e.preventDefault();
+        setPwaPrompt(e);
+      };
+      window.addEventListener('beforeinstallprompt', handler);
+      return () => window.removeEventListener('beforeinstallprompt', handler);
     }
   }, []);
 
   const handleUploadPress = () => {
     setShowUpload(true);
     setTimeout(() => scrollRef.current?.scrollTo({ y: 160, animated: true }), 100);
+  };
+
+  const handleInstallPress = async () => {
+    if (pwaPrompt) {
+      pwaPrompt.prompt();
+      const choice = await pwaPrompt.userChoice;
+      if (choice && choice.outcome === 'accepted') {
+        setPwaPrompt(null);
+      }
+    } else {
+      Alert.alert(
+        'Instalar Alquimio Studio (PWA)',
+        Platform.OS === 'web' && /iPhone|iPad|iPod/.test(typeof navigator !== 'undefined' ? navigator.userAgent : '')
+          ? 'Para instalar en tu iPhone o iPad:\n1. Toca el botón Compartir en Safari (icono de cuadrado con flecha).\n2. Elige "Agregar a pantalla de inicio".\n3. ¡Listo! La app se abrirá como nativa.'
+          : 'Para instalar en este navegador:\n1. Toca el icono de instalación (o tres puntos ⋮ en Chrome/Edge).\n2. Selecciona "Instalar Alquimio Studio" o "Agregar a pantalla de inicio".',
+        [{ text: 'Entendido' }]
+      );
+    }
+  };
+
+  const onPublishClick = () => {
+    if (!selectedMedia) {
+      handleUploadPress();
+      return;
+    }
+    handlePublish();
   };
 
   return (
@@ -668,78 +793,88 @@ export default function HomeScreen() {
           style={styles.flex}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          <ScrollView
-            ref={scrollRef}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-          >
+          {/* Contenedor central responsivo (Móvil, Tablet y Desktop) */}
+          <View style={styles.responsiveWrapper}>
+            <ScrollView
+              ref={scrollRef}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scroll}
+              keyboardShouldPersistTaps="handled"
+            >
 
-            {/* ══ BLOQUE 1: HERO HOLOGRÁFICO ════════════════ */}
-            <Animated.View entering={FadeIn.duration(800)}>
-              <HoloHeader onUploadPress={handleUploadPress} />
-            </Animated.View>
+              {/* ══ BLOQUE 1: HERO HOLOGRÁFICO ════════════════ */}
+              <View>
+                <HoloHeader
+                  onUploadPress={handleUploadPress}
+                  onInstallPress={handleInstallPress}
+                />
+              </View>
 
-            {/* ══ BLOQUE 1b: UPLOAD / MEDIA ════════════════ */}
-            {(showUpload || selectedMedia) && (
-              <Animated.View
-                entering={FadeInDown.duration(400)}
-                style={styles.mediaBlock}
-              >
+              {/* ══ BLOQUE 1b: SELECTOR MULTIMEDIA Y FORMATO ══ */}
+              <View style={styles.mediaBlock}>
                 <TechCorners />
                 {selectedMedia ? (
-                  <MediaPreview media={selectedMedia} uploadProgress={uploadProgress} />
+                  <>
+                    <MediaPreview media={selectedMedia} uploadProgress={uploadProgress} />
+                    <AspectRatioSelector />
+                  </>
                 ) : (
-                  <MediaPicker />
+                  <MediaPicker onOpenMenu={handleUploadPress} />
                 )}
-              </Animated.View>
-            )}
+              </View>
 
-            {/* Separador */}
-            <View style={styles.sep} />
+              {/* Separador */}
+              <View style={styles.sep} />
 
-            {/* ══ BLOQUE 2: CAJA DE REDACCIÓN ══════════════ */}
-            <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-              <ComposeSection />
-            </Animated.View>
+              {/* ══ BLOQUE 2: CAJA DE REDACCIÓN ══════════════ */}
+              <View>
+                <ComposeSection />
+              </View>
 
-            {/* Separador */}
-            <View style={styles.sep} />
+              {/* Separador */}
+              <View style={styles.sep} />
 
-            {/* ══ BLOQUE 3: PLATAFORMAS ════════════════════ */}
-            <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-              <PlatformsSection />
-            </Animated.View>
+              {/* ══ BLOQUE 3: PLATAFORMAS ════════════════════ */}
+              <View>
+                <PlatformsSection onSelectPlatform={(id) => setSelectedPlatformForConnect(id)} />
+              </View>
 
-            {/* Separador */}
-            <View style={styles.sep} />
+              {/* Separador */}
+              <View style={styles.sep} />
 
-            {/* ══ BLOQUE 4: BOTÓN PUBLICAR ═════════════════ */}
-            <Animated.View entering={FadeInDown.delay(300).duration(500)}>
-              <PublishButton onPress={handlePublish} disabled={!canPublish} />
-            </Animated.View>
+              {/* ══ BLOQUE 4: BOTÓN PUBLICAR ═════════════════ */}
+              <View>
+                <PublishButton onPress={onPublishClick} />
+              </View>
 
-            {/* Contador de redes */}
-            {activePlatforms.size > 0 && (
-              <Text style={styles.netCount}>
-                {activePlatforms.size} red{activePlatforms.size !== 1 ? 'es' : ''} sincronizada{activePlatforms.size !== 1 ? 's' : ''}
-              </Text>
-            )}
+              {/* Contador de redes */}
+              {activePlatforms.size > 0 && (
+                <Text style={styles.netCount}>
+                  {activePlatforms.size} red{activePlatforms.size !== 1 ? 'es' : ''} sincronizada{activePlatforms.size !== 1 ? 's' : ''}
+                </Text>
+              )}
 
-            {/* ══ FOOTER: SELLO DE AUTORÍA ═════════════════ */}
-            <View style={styles.footer}>
-              <View style={styles.footerLine} />
-              <Text style={styles.footerText}>
-                Alquimio v1.0 · Creado por Israel Montás · © 2026 Todos los derechos reservados
-              </Text>
-              <View style={styles.footerLine} />
-            </View>
+              {/* ══ FOOTER: SELLO DE AUTORÍA ═════════════════ */}
+              <View style={styles.footer}>
+                <View style={styles.footerLine} />
+                <Text style={styles.footerText}>
+                  Alquimio v1.0 · Creado por Israel Montás · © 2026 Todos los derechos reservados
+                </Text>
+                <View style={styles.footerLine} />
+              </View>
 
-            <View style={{ height: 24 }} />
-          </ScrollView>
+              <View style={{ height: 24 }} />
+            </ScrollView>
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
+      {/* Modales Interactivos del Sistema */}
+      <UploadMenuModal visible={showUpload} onClose={() => setShowUpload(false)} />
+      <ConnectAccountModal
+        platformId={selectedPlatformForConnect}
+        onClose={() => setSelectedPlatformForConnect(null)}
+      />
       <PublishModal />
     </>
   );
@@ -748,14 +883,30 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    minHeight: H,
     backgroundColor: C.bg,
   },
-  flex: { flex: 1 },
+  flex: { 
+    flex: 1,
+    minHeight: H,
+    width: '100%',
+    backgroundColor: C.bg,
+  },
+  responsiveWrapper: {
+    width: '100%',
+    maxWidth: 520,
+    marginHorizontal: 'auto' as any,
+    alignSelf: 'center',
+    flex: 1,
+    minHeight: '100%' as any,
+    backgroundColor: C.bg,
+  },
   scroll: {
-    paddingBottom: 16,
+    paddingVertical: 20,
+    flexGrow: 1,
   },
   mediaBlock: {
-    marginHorizontal: 12,
+    marginHorizontal: 16,
     marginTop: 8,
     borderRadius: 6,
     borderWidth: 0.5,

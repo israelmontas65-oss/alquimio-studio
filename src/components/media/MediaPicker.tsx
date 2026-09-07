@@ -19,13 +19,17 @@ import Animated, {
   withSequence,
   Easing,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../../constants/colors';
 import { useMediaPicker } from '../../hooks/useMediaPicker';
+import { CloudUploadSvg } from '../ui/SocialIcons';
 
-export function MediaPicker() {
-  const { pickFromGallery, pickDocument } = useMediaPicker();
+interface MediaPickerProps {
+  onOpenMenu?: () => void;
+}
+
+export function MediaPicker({ onOpenMenu }: MediaPickerProps = {}) {
+  const { pickFromGallery } = useMediaPicker();
 
   // Animación de pulso del ícono central
   const iconScale = useSharedValue(1);
@@ -59,25 +63,11 @@ export function MediaPicker() {
   }));
 
   const handlePress = () => {
-    Alert.alert(
-      'Seleccionar archivo',
-      'Elige el tipo de contenido a publicar',
-      [
-        {
-          text: '🎬 Video',
-          onPress: () => pickFromGallery('video'),
-        },
-        {
-          text: '🖼️ Imagen',
-          onPress: () => pickFromGallery('image'),
-        },
-        {
-          text: '📄 PDF',
-          onPress: () => pickDocument(),
-        },
-        { text: 'Cancelar', style: 'cancel' },
-      ]
-    );
+    if (onOpenMenu) {
+      onOpenMenu();
+    } else {
+      pickFromGallery('both');
+    }
   };
 
   return (
@@ -95,7 +85,7 @@ export function MediaPicker() {
         {/* Ícono central animado */}
         <Animated.View style={iconAnim}>
           <View style={styles.iconCircle}>
-            <Ionicons name="cloud-upload-outline" size={36} color={COLORS.neon.turquoise} />
+            <CloudUploadSvg size={36} color={COLORS.neon.turquoise} />
           </View>
         </Animated.View>
 
@@ -107,7 +97,7 @@ export function MediaPicker() {
 
         {/* Chips de formatos */}
         <View style={styles.chips}>
-          {['MP4', 'MOV', 'JPG', 'PNG', 'PDF'].map((fmt) => (
+          {['MP4', 'PELÍCULA', 'JPG', 'PNG', 'PDF'].map((fmt) => (
             <View key={fmt} style={styles.chip}>
               <Text style={styles.chipText}>{fmt}</Text>
             </View>

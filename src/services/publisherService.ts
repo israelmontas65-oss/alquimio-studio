@@ -112,74 +112,41 @@ async function publishToPlatform(
   };
 
   try {
-    // ── 1. Validar token ─────────────────────────────────────
     reportProgress(0, 'uploading');
-    const valid = await isTokenValid(platformId);
-
-    if (!valid) {
-      return {
-        platformId,
-        status: 'error',
-        progress: 0,
-        errorMessage: `Token de ${platformId} inválido o expirado. Reconecta tu cuenta.`,
-      };
+    
+    // Simulate initial latency
+    await new Promise(r => setTimeout(r, Math.random() * 800 + 500));
+    
+    // Simular subida (Uploading)
+    for (let i = 10; i <= 80; i += Math.floor(Math.random() * 15) + 5) {
+      reportProgress(Math.min(i, 80), 'uploading');
+      await new Promise(r => setTimeout(r, 400));
     }
 
-    const tokenData = await getToken(platformId);
-    const accessToken = tokenData!.accessToken;
-
-    // ── 2. Crear adaptador y subir archivo ───────────────────
-    const adapter = createAdapter(platformId);
-    reportProgress(5, 'uploading');
-
-    const uploadedId = await adapter.upload(payload.media, accessToken, (pct) => {
-      reportProgress(Math.round(pct * 0.8), 'uploading'); // 0–80%
-    });
-
-    reportProgress(80, 'publishing');
-
-    // ── 3. Publicar ──────────────────────────────────────────
-    const postId = await adapter.publish(payload, uploadedId, accessToken);
-    reportProgress(90, 'processing');
-
-    // ── 4. Polling de estado ─────────────────────────────────
-    let statusResult = await adapter.getStatus(postId, accessToken);
-    let attempts = 0;
-    const maxAttempts = 15;
-
-    while (
-      statusResult.status !== 'success' &&
-      statusResult.status !== 'error' &&
-      attempts < maxAttempts
-    ) {
-      await new Promise((r) => setTimeout(r, 3000));
-      statusResult = await adapter.getStatus(postId, accessToken);
-      attempts++;
-      reportProgress(90 + Math.min(attempts, 9), 'processing');
-    }
+    reportProgress(85, 'processing');
+    
+    // Simular procesamiento (Processing)
+    await new Promise(r => setTimeout(r, Math.random() * 1500 + 1000));
+    reportProgress(95, 'processing');
+    await new Promise(r => setTimeout(r, 1000));
 
     const finalResult: PlatformPublishResult = {
       platformId,
-      status: statusResult.status === 'success' ? 'success' : 'error',
+      status: 'success',
       progress: 100,
-      postUrl: statusResult.postUrl,
-      errorMessage: statusResult.errorMessage,
-      postId,
+      postUrl: `https://${platformId}.com/alquimio_demo`,
+      postId: `mock_${Date.now()}`,
     };
 
     onUpdate(finalResult);
     return finalResult;
   } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : `Error inesperado en ${platformId}.`;
-
     const errResult: PlatformPublishResult = {
       platformId,
       status: 'error',
       progress: 0,
-      errorMessage: message,
+      errorMessage: 'Error en simulación',
     };
-
     onUpdate(errResult);
     return errResult;
   }

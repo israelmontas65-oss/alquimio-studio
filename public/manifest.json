@@ -1,22 +1,25 @@
 {
   "short_name": "Alquimio",
-  "name": "Alquimio — Arquitectura & Implementación",
+  "name": "Alquimio Studio",
+  "description": "Plataforma Universal de Publicación y Distribución en Bloque",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/icons/icon-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icons/icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
     }
   ],
   "start_url": "/",
-  "background_color": "#000000",
-  "theme_color": "#000000",
-  "display": "standalone"
+  "scope": "/",
+  "background_color": "#080C14",
+  "theme_color": "#080C14",
+  "display": "standalone",
+  "orientation": "portrait"
 }

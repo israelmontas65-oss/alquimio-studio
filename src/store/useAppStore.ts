@@ -16,6 +16,8 @@ interface AppState {
   // Medios seleccionados
   selectedMedia: MediaFile | null;
   uploadProgress: number; // 0–100
+  selectedAspectRatio: 'auto' | '9:16' | '1:1' | '4:5' | '16:9';
+  fitMode: 'blur' | 'crop';
 
   // Redacción
   caption: string;
@@ -24,6 +26,11 @@ interface AppState {
   // Plataformas activas
   activePlatforms: Set<PlatformId>;
   platformSettings: Partial<Record<PlatformId, PlatformCustomSettings>>;
+
+  // Cuentas vinculadas (OAuth / Demo)
+  linkedAccounts: Set<PlatformId>;
+  platformHandles: Record<PlatformId, string>;
+  aiLoading: boolean;
 
   // Sesión de publicación
   publishSession: PublishSession | null;
@@ -36,6 +43,8 @@ interface AppActions {
   // Medios
   setSelectedMedia: (media: MediaFile | null) => void;
   setUploadProgress: (progress: number) => void;
+  setSelectedAspectRatio: (ratio: 'auto' | '9:16' | '1:1' | '4:5' | '16:9') => void;
+  setFitMode: (mode: 'blur' | 'crop') => void;
 
   // Redacción
   setCaption: (caption: string) => void;
@@ -47,6 +56,12 @@ interface AppActions {
   togglePlatform: (id: PlatformId) => void;
   setPlatformActive: (id: PlatformId, active: boolean) => void;
   setPlatformSettings: (id: PlatformId, settings: Partial<PlatformCustomSettings>) => void;
+
+  // IA y Cuentas
+  setAiLoading: (loading: boolean) => void;
+  setPlatformHandle: (id: PlatformId, handle: string) => void;
+  linkAccount: (id: PlatformId, handle?: string) => void;
+  unlinkAccount: (id: PlatformId) => void;
 
   // Publicación
   startPublishSession: (payload: PublishPayload) => void;
@@ -65,16 +80,29 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   // ── Estado inicial ───────────────────────────────────────────
   selectedMedia: null,
   uploadProgress: 0,
+  selectedAspectRatio: 'auto',
+  fitMode: 'blur',
   caption: '',
   hashtags: [],
-  activePlatforms: initialActivePlatforms,
+  activePlatforms: new Set<PlatformId>(PLATFORM_ORDER),
   platformSettings: {},
+  linkedAccounts: new Set<PlatformId>(PLATFORM_ORDER),
+  platformHandles: {
+    tiktok: 'Francia',
+    instagram: '@alquimio',
+    youtube: '@alquimio',
+    whatsapp: '@alquimio',
+    facebook: '@alquimio',
+  },
+  aiLoading: false,
   publishSession: null,
   isPublishModalVisible: false,
 
   // ── Medios ───────────────────────────────────────────────────
   setSelectedMedia: (media) => set({ selectedMedia: media, uploadProgress: 0 }),
   setUploadProgress: (progress) => set({ uploadProgress: progress }),
+  setSelectedAspectRatio: (selectedAspectRatio) => set({ selectedAspectRatio }),
+  setFitMode: (fitMode) => set({ fitMode }),
 
   // ── Redacción ────────────────────────────────────────────────
   setCaption: (caption) => set({ caption }),
@@ -118,6 +146,37 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         [id]: { ...state.platformSettings[id], ...settings, platformId: id },
       },
     })),
+
+  // ── IA y Cuentas ─────────────────────────────────────────────
+  setAiLoading: (loading) => set({ aiLoading: loading }),
+  setPlatformHandle: (id, handle) =>
+    set((state) => ({
+      platformHandles: { ...state.platformHandles, [id]: handle },
+    })),
+  linkAccount: (id, handle) =>
+    set((state) => {
+      const next = new Set(state.linkedAccounts);
+      next.add(id);
+      // Auto-activate when linked
+      const nextActive = new Set(state.activePlatforms);
+      nextActive.add(id);
+      const nextHandles = handle
+        ? { ...state.platformHandles, [id]: handle }
+        : state.platformHandles;
+      return {
+        linkedAccounts: next,
+        activePlatforms: nextActive,
+        platformHandles: nextHandles,
+      };
+    }),
+  unlinkAccount: (id) =>
+    set((state) => {
+      const next = new Set(state.linkedAccounts);
+      next.delete(id);
+      const nextActive = new Set(state.activePlatforms);
+      nextActive.delete(id);
+      return { linkedAccounts: next, activePlatforms: nextActive };
+    }),
 
   // ── Sesión de publicación ────────────────────────────────────
   startPublishSession: (payload) => {
@@ -167,6 +226,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     set({
       selectedMedia: null,
       uploadProgress: 0,
+      selectedAspectRatio: 'auto',
+      fitMode: 'blur',
       caption: '',
       hashtags: [],
       publishSession: null,
