@@ -1,6 +1,6 @@
 // ============================================================
 // src/screens/HomeScreen.tsx
-// DIRECTIVA TÉCNICA ESTRICTA: REDISEÑO TOTAL - ESTÁNDAR COMERCIAL ALQUIMIO STUDIO
+// RE-CALIBRACIÓN ESTRICTA: PROPORCIONES, ICONOS Y TIPOGRAFÍA
 // ============================================================
 
 import React, { useRef, useState, useEffect } from 'react';
@@ -97,26 +97,28 @@ function Zone1Header({ onInstallPress }: { onInstallPress: () => void }) {
 
   return (
     <View style={z1.container}>
-      {/* Título */}
-      <Text style={[z1.title, getWebGlow('rgba(255, 215, 0, 0.6)', 15)]}>Alquimia</Text>
       
+      {/* Botón PWA Discreto */}
       <TouchableOpacity onPress={onInstallPress} style={z1.installBtn}>
-        <Text style={z1.installText}>⬇ INSTALAR PWA</Text>
+        <Text style={z1.installText}>+ INSTALAR PWA</Text>
       </TouchableOpacity>
 
-      {/* Portal 170px */}
+      {/* Título Libre, SIN CAJA (solo textShadow) */}
+      <Text style={z1.title}>Alquimia</Text>
+      
+      {/* Portal (Expandido) */}
       <View style={z1.portal}>
         {/* Glow de fondo animado */}
         <Animated.View style={[z1.bgPulse, pulseStyle]} />
 
-        {/* Anillo en Rotación (10s 360deg) */}
-        <Animated.View style={[z1.ringOuter, ringStyle, getWebGlow('rgba(0, 240, 255, 0.4)', 10)]}>
-          {[0, 120, 240].map(deg => (
-            <View key={deg} style={[z1.node, { transform: [{ rotate: `${deg}deg` }, { translateY: -85 }] }]} />
+        {/* Anillo en Rotación */}
+        <Animated.View style={[z1.ringOuter, ringStyle, getWebGlow('rgba(0, 255, 212, 0.5)', 15)]}>
+          {[0, 90, 180, 270].map(deg => (
+            <View key={deg} style={[z1.node, { transform: [{ rotate: `${deg}deg` }, { translateY: -95 }] }]} />
           ))}
         </Animated.View>
 
-        {/* Letra Central 3D */}
+        {/* Letra Central 3D más grande */}
         <Text style={z1.letterA}>A</Text>
       </View>
     </View>
@@ -124,15 +126,15 @@ function Zone1Header({ onInstallPress }: { onInstallPress: () => void }) {
 }
 
 const z1 = StyleSheet.create({
-  container: { height: 220, alignItems: 'center', justifyContent: 'center', paddingTop: 20, position: 'relative' },
-  installBtn: { position: 'absolute', top: 10, right: 16, backgroundColor: 'rgba(0, 240, 255, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: C.cyanNeon },
-  installText: { color: C.cyanNeon, fontSize: 10, fontWeight: '800' },
-  title: { fontSize: 28, fontWeight: '800', color: C.gold, fontStyle: 'italic', letterSpacing: 4, marginBottom: 16 },
-  portal: { width: 170, height: 170, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  bgPulse: { position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255, 215, 0, 0.15)', shadowColor: C.gold, shadowRadius: 30, shadowOpacity: 0.8 },
-  ringOuter: { position: 'absolute', width: 170, height: 170, borderRadius: 85, borderWidth: 1.5, borderColor: 'rgba(0, 255, 212, 0.3)', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
-  node: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: C.cyanNodes, shadowColor: C.cyanNodes, shadowRadius: 8, shadowOpacity: 1 },
-  letterA: { fontSize: 85, fontWeight: '900', color: '#FFFFFF', textShadowColor: '#B8860B', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 5 },
+  container: { height: 260, alignItems: 'center', justifyContent: 'center', paddingTop: 24, position: 'relative' },
+  installBtn: { position: 'absolute', top: 5, right: 16, backgroundColor: 'rgba(255, 255, 255, 0.05)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 0.5, borderColor: 'rgba(0, 240, 255, 0.3)' },
+  installText: { color: 'rgba(0, 240, 255, 0.7)', fontSize: 9, fontWeight: '600', letterSpacing: 1 },
+  title: { fontSize: 34, fontWeight: '800', color: C.gold, fontStyle: 'italic', letterSpacing: 4, marginBottom: 20, textShadowColor: 'rgba(255, 215, 0, 0.8)', textShadowRadius: 15, textShadowOffset: { width: 0, height: 0 } },
+  portal: { width: 190, height: 190, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  bgPulse: { position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255, 215, 0, 0.15)', shadowColor: C.gold, shadowRadius: 35, shadowOpacity: 0.8 },
+  ringOuter: { position: 'absolute', width: 190, height: 190, borderRadius: 95, borderWidth: 2, borderColor: 'rgba(0, 255, 212, 0.4)', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+  node: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: C.cyanNodes, shadowColor: C.cyanNodes, shadowRadius: 10, shadowOpacity: 1 },
+  letterA: { fontSize: 95, fontWeight: '900', color: '#FFFFFF', textShadowColor: '#B8860B', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 8 },
 });
 
 // ─────────────────────────────────────────────
@@ -243,7 +245,7 @@ const z3 = StyleSheet.create({
 // ZONA 4: PLATAFORMAS SINCRONIZADAS
 // ─────────────────────────────────────────────
 const PLATFORMS = [
-  { id: 'tiktok', label: 'TikTok', sub: 'Francia', color: '#FFFFFF', SvgIcon: TikTokSvg },
+  { id: 'tiktok', label: 'TikTok', sub: 'Francia', color: '#00F2FE', SvgIcon: TikTokSvg }, // Color primario resaltado
   { id: 'instagram', label: 'Reels de Instagram', sub: '@alquimio', color: '#E1306C', SvgIcon: InstagramSvg },
   { id: 'youtube', label: 'Cortometrajes de YouTube', sub: '@alquimio', color: '#FF0000', SvgIcon: YouTubeSvg },
   { id: 'whatsapp', label: 'WhatsApp (Business)', sub: '@alquimio', color: '#25D366', SvgIcon: WhatsAppSvg },
@@ -265,7 +267,16 @@ function Zone4Platforms({ onSelectPlatform }: { onSelectPlatform: (id: PlatformI
           return (
             <View key={p.id} style={z4.row}>
               <TouchableOpacity onPress={() => onSelectPlatform(p.id as PlatformId)} style={z4.touchArea}>
-                <View style={z4.iconWrap}><p.SvgIcon size={24} /></View>
+                {/* Cuadro de Icono de 44x44px con glow condicional */}
+                <View style={[
+                  z4.iconWrap,
+                  { borderColor: isActive ? p.color : 'rgba(255,255,255,0.05)' },
+                  isActive ? getWebGlow(p.color, 12) : {}
+                ]}>
+                  {/* Icono de tamaño 28px */}
+                  <p.SvgIcon size={28} />
+                </View>
+
                 <View style={z4.textWrap}>
                   <Text style={[z4.label, isActive && { color: C.white }]}>{p.label}</Text>
                   <Text style={z4.sub}>{customSub}</Text>
@@ -277,7 +288,7 @@ function Zone4Platforms({ onSelectPlatform }: { onSelectPlatform: (id: PlatformI
                 onValueChange={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); togglePlatform(p.id as PlatformId); }}
                 trackColor={{ false: 'rgba(255,255,255,0.1)', true: C.greenActive }}
                 thumbColor="#FFF"
-                style={[isActive ? getWebGlow(C.greenActive, 10) : {}, { transform: [{ scale: 0.95 }] }]}
+                style={[isActive ? getWebGlow(C.greenActive, 10) : {}, { transform: [{ scale: 1.05 }] }]}
               />
             </View>
           );
@@ -289,14 +300,14 @@ function Zone4Platforms({ onSelectPlatform }: { onSelectPlatform: (id: PlatformI
 
 const z4 = StyleSheet.create({
   container: { marginHorizontal: 16 },
-  title: { color: C.white, fontSize: 14, fontWeight: '700', marginBottom: 10, letterSpacing: 0.5 },
+  title: { color: C.white, fontSize: 14, fontWeight: '700', marginBottom: 12, letterSpacing: 0.5 },
   list: { gap: 6 },
-  row: { minHeight: 58, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  touchArea: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconWrap: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  touchArea: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  iconWrap: { width: 44, height: 44, backgroundColor: '#0D1424', borderRadius: 12, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
   textWrap: { flex: 1 },
-  label: { color: '#ccc', fontSize: 14, fontWeight: '600' },
-  sub: { color: C.textMuted, fontSize: 11, marginTop: 2 },
+  label: { color: '#E0E0E0', fontSize: 16, fontWeight: '700' },
+  sub: { color: '#AAAAAA', fontSize: 13, marginTop: 2 },
 });
 
 // ─────────────────────────────────────────────
@@ -333,7 +344,7 @@ function Zone5Publish({ onPress }: { onPress: () => void }) {
 }
 
 const z5 = StyleSheet.create({
-  container: { marginHorizontal: 16, marginTop: 10, paddingBottom: 20 },
+  container: { marginHorizontal: 16, marginTop: 4, paddingBottom: 24 },
   btn: { height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1.5, backgroundColor: '#090E1A', overflow: 'hidden' },
   text: { color: C.white, fontSize: 15, fontWeight: '900', letterSpacing: 2 },
   footerText: { color: C.textMuted, fontSize: 10, textAlign: 'center', marginTop: 16, letterSpacing: 0.5 },
@@ -349,7 +360,6 @@ export default function HomeScreen() {
   const [showUpload, setShowUpload] = useState(false);
   const [selectedPlatformForConnect, setSelectedPlatformForConnect] = useState<PlatformId | null>(null);
 
-  // Instalar PWA lógica
   useEffect(() => {
     const handler = (e: any) => { e.preventDefault(); (window as any).pwaPrompt = e; };
     if (typeof window !== 'undefined') window.addEventListener('beforeinstallprompt', handler);
@@ -373,10 +383,8 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
           
-          {/* Fondo Grafito con Patrón de Cuadrícula Tecnológica */}
           <View style={styles.bgGrid} />
 
-          {/* Enfoque 100% fluido con ScrollView dinámico */}
           <View style={styles.wrapper}>
             <ScrollView
               ref={scrollRef}
@@ -388,13 +396,16 @@ export default function HomeScreen() {
               <Zone2Upload onPress={() => setShowUpload(true)} />
               <Zone3Compose />
               <Zone4Platforms onSelectPlatform={setSelectedPlatformForConnect} />
+              
+              {/* Espaciador flexible para empujar la Zona 5 al fondo naturalmente */}
+              <View style={styles.spacer} />
+
               <Zone5Publish onPress={onPublishClick} />
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      {/* Modales del Sistema */}
       <UploadMenuModal visible={showUpload} onClose={() => setShowUpload(false)} />
       <ConnectAccountModal platformId={selectedPlatformForConnect} onClose={() => setSelectedPlatformForConnect(null)} />
       <PublishModal />
@@ -407,5 +418,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   wrapper: { flex: 1, width: '100%', maxWidth: 500, alignSelf: 'center' },
   bgGrid: { ...StyleSheet.absoluteFill as any, opacity: 0.05, backgroundImage: 'linear-gradient(#00F0FF 1px, transparent 1px), linear-gradient(90deg, #00F0FF 1px, transparent 1px)', backgroundSize: '30px 30px' } as any,
-  scrollContent: { flexGrow: 1, minHeight: '100%' as any, gap: 14, paddingBottom: 10 },
+  scrollContent: { flexGrow: 1, gap: 16, paddingBottom: 10 },
+  spacer: { flex: 1, minHeight: 16 }, // Elimina huecos bruscos, distribuye espacio
 });
