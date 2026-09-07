@@ -1,6 +1,6 @@
 // ============================================================
 // src/screens/HomeScreen.tsx
-// RE-CALIBRACIÓN ESTRICTA: PROPORCIONES, ICONOS Y TIPOGRAFÍA
+// REESTRUCTURACIÓN DEFINITIVA: LAYOUT RESPONSIVO UNIVERSAL
 // ============================================================
 
 import React, { useRef, useState, useEffect } from 'react';
@@ -15,7 +15,7 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
+  useWindowDimensions,
   ActivityIndicator,
   Alert
 } from 'react-native';
@@ -48,7 +48,7 @@ import {
 import type { PlatformId } from '../types/platform.types';
 
 // ─────────────────────────────────────────────
-// PALETA CYBER-ALQUIMIA EXACTA
+// PALETA CYBER-ALQUIMIA
 // ─────────────────────────────────────────────
 const C = {
   bg: '#040711',
@@ -62,7 +62,7 @@ const C = {
 };
 
 // ─────────────────────────────────────────────
-// UTILIDADES: EFECTOS GLOW Y CORNERS
+// UTILIDADES
 // ─────────────────────────────────────────────
 const getWebGlow = (color: string, radius: number) => 
   Platform.OS === 'web' ? { boxShadow: `0 0 ${radius}px ${color}` } as any : { shadowColor: color, shadowRadius: radius, shadowOpacity: 1, elevation: 10 };
@@ -97,28 +97,19 @@ function Zone1Header({ onInstallPress }: { onInstallPress: () => void }) {
 
   return (
     <View style={z1.container}>
-      
-      {/* Botón PWA Discreto */}
       <TouchableOpacity onPress={onInstallPress} style={z1.installBtn}>
         <Text style={z1.installText}>+ INSTALAR PWA</Text>
       </TouchableOpacity>
 
-      {/* Título Libre, SIN CAJA (solo textShadow) */}
       <Text style={z1.title}>Alquimia</Text>
       
-      {/* Portal (Expandido) */}
       <View style={z1.portal}>
-        {/* Glow de fondo animado */}
         <Animated.View style={[z1.bgPulse, pulseStyle]} />
-
-        {/* Anillo en Rotación */}
         <Animated.View style={[z1.ringOuter, ringStyle, getWebGlow('rgba(0, 255, 212, 0.5)', 15)]}>
           {[0, 90, 180, 270].map(deg => (
-            <View key={deg} style={[z1.node, { transform: [{ rotate: `${deg}deg` }, { translateY: -95 }] }]} />
+            <View key={deg} style={[z1.node, { transform: [{ rotate: `${deg}deg` }, { translateY: -70 }] }]} />
           ))}
         </Animated.View>
-
-        {/* Letra Central 3D más grande */}
         <Text style={z1.letterA}>A</Text>
       </View>
     </View>
@@ -126,15 +117,15 @@ function Zone1Header({ onInstallPress }: { onInstallPress: () => void }) {
 }
 
 const z1 = StyleSheet.create({
-  container: { height: 260, alignItems: 'center', justifyContent: 'center', paddingTop: 24, position: 'relative' },
-  installBtn: { position: 'absolute', top: 5, right: 16, backgroundColor: 'rgba(255, 255, 255, 0.05)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 0.5, borderColor: 'rgba(0, 240, 255, 0.3)' },
+  container: { height: 180, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  installBtn: { position: 'absolute', top: 0, right: 0, backgroundColor: 'rgba(255, 255, 255, 0.05)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 0.5, borderColor: 'rgba(0, 240, 255, 0.3)' },
   installText: { color: 'rgba(0, 240, 255, 0.7)', fontSize: 9, fontWeight: '600', letterSpacing: 1 },
-  title: { fontSize: 34, fontWeight: '800', color: C.gold, fontStyle: 'italic', letterSpacing: 4, marginBottom: 20, textShadowColor: 'rgba(255, 215, 0, 0.8)', textShadowRadius: 15, textShadowOffset: { width: 0, height: 0 } },
-  portal: { width: 190, height: 190, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  bgPulse: { position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255, 215, 0, 0.15)', shadowColor: C.gold, shadowRadius: 35, shadowOpacity: 0.8 },
-  ringOuter: { position: 'absolute', width: 190, height: 190, borderRadius: 95, borderWidth: 2, borderColor: 'rgba(0, 255, 212, 0.4)', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 26, fontWeight: '800', color: C.gold, fontStyle: 'italic', letterSpacing: 4, marginBottom: 10, textShadowColor: 'rgba(255, 215, 0, 0.8)', textShadowRadius: 10, textShadowOffset: { width: 0, height: 0 } },
+  portal: { width: 140, height: 140, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  bgPulse: { position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255, 215, 0, 0.15)', shadowColor: C.gold, shadowRadius: 35, shadowOpacity: 0.8 },
+  ringOuter: { position: 'absolute', width: 140, height: 140, borderRadius: 70, borderWidth: 2, borderColor: 'rgba(0, 255, 212, 0.4)', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
   node: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: C.cyanNodes, shadowColor: C.cyanNodes, shadowRadius: 10, shadowOpacity: 1 },
-  letterA: { fontSize: 95, fontWeight: '900', color: '#FFFFFF', textShadowColor: '#B8860B', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 8 },
+  letterA: { fontSize: 75, fontWeight: '900', color: '#FFFFFF', textShadowColor: '#B8860B', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 8 },
 });
 
 // ─────────────────────────────────────────────
@@ -172,8 +163,8 @@ function Zone2Upload({ onPress }: { onPress: () => void }) {
 }
 
 const z2 = StyleSheet.create({
-  box: { height: 95, marginHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(0, 240, 255, 0.5)', overflow: 'hidden', justifyContent: 'center' },
-  inner: { alignItems: 'center', justifyContent: 'center', gap: 4 },
+  box: { minHeight: 90, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(0, 240, 255, 0.5)', overflow: 'hidden', justifyContent: 'center' },
+  inner: { alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10 },
   iconWrap: { marginBottom: 2 },
   title: { color: C.cyanNeon, fontSize: 13, fontWeight: '800', letterSpacing: 2 },
   sub: { color: C.textMuted, fontSize: 10, letterSpacing: 1 },
@@ -232,7 +223,7 @@ function Zone3Compose() {
 }
 
 const z3 = StyleSheet.create({
-  box: { height: 110, marginHorizontal: 16, backgroundColor: C.bgCompose, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.3)', padding: 10, justifyContent: 'space-between' },
+  box: { minHeight: 110, backgroundColor: C.bgCompose, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.3)', padding: 10, justifyContent: 'space-between' },
   input: { flex: 1, color: C.white, fontSize: 13, textAlignVertical: 'top', padding: 0 },
   bottomBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(0, 229, 255, 0.1)', paddingTop: 8, marginTop: 4 },
   aiBtn: { backgroundColor: 'rgba(255, 215, 0, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4, borderWidth: 0.5, borderColor: C.gold },
@@ -245,7 +236,7 @@ const z3 = StyleSheet.create({
 // ZONA 4: PLATAFORMAS SINCRONIZADAS
 // ─────────────────────────────────────────────
 const PLATFORMS = [
-  { id: 'tiktok', label: 'TikTok', sub: 'Francia', color: '#00F2FE', SvgIcon: TikTokSvg }, // Color primario resaltado
+  { id: 'tiktok', label: 'TikTok', sub: 'Francia', color: '#00F2FE', SvgIcon: TikTokSvg }, 
   { id: 'instagram', label: 'Reels de Instagram', sub: '@alquimio', color: '#E1306C', SvgIcon: InstagramSvg },
   { id: 'youtube', label: 'Cortometrajes de YouTube', sub: '@alquimio', color: '#FF0000', SvgIcon: YouTubeSvg },
   { id: 'whatsapp', label: 'WhatsApp (Business)', sub: '@alquimio', color: '#25D366', SvgIcon: WhatsAppSvg },
@@ -267,13 +258,11 @@ function Zone4Platforms({ onSelectPlatform }: { onSelectPlatform: (id: PlatformI
           return (
             <View key={p.id} style={z4.row}>
               <TouchableOpacity onPress={() => onSelectPlatform(p.id as PlatformId)} style={z4.touchArea}>
-                {/* Cuadro de Icono de 44x44px con glow condicional */}
                 <View style={[
                   z4.iconWrap,
                   { borderColor: isActive ? p.color : 'rgba(255,255,255,0.05)' },
                   isActive ? getWebGlow(p.color, 12) : {}
                 ]}>
-                  {/* Icono de tamaño 28px */}
                   <p.SvgIcon size={28} />
                 </View>
 
@@ -299,10 +288,10 @@ function Zone4Platforms({ onSelectPlatform }: { onSelectPlatform: (id: PlatformI
 }
 
 const z4 = StyleSheet.create({
-  container: { marginHorizontal: 16 },
+  container: { },
   title: { color: C.white, fontSize: 14, fontWeight: '700', marginBottom: 12, letterSpacing: 0.5 },
   list: { gap: 6 },
-  row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  row: { height: 56, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   touchArea: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14 },
   iconWrap: { width: 44, height: 44, backgroundColor: '#0D1424', borderRadius: 12, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
   textWrap: { flex: 1 },
@@ -344,10 +333,10 @@ function Zone5Publish({ onPress }: { onPress: () => void }) {
 }
 
 const z5 = StyleSheet.create({
-  container: { marginHorizontal: 16, marginTop: 4, paddingBottom: 24 },
-  btn: { height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1.5, backgroundColor: '#090E1A', overflow: 'hidden' },
+  container: { marginTop: 2 }, // El gap de 14px de scrollContent aporta el resto (14+2=16px)
+  btn: { height: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1.5, backgroundColor: '#090E1A', overflow: 'hidden' },
   text: { color: C.white, fontSize: 15, fontWeight: '900', letterSpacing: 2 },
-  footerText: { color: C.textMuted, fontSize: 10, textAlign: 'center', marginTop: 16, letterSpacing: 0.5 },
+  footerText: { color: C.textMuted, fontSize: 10, textAlign: 'center', marginTop: 12, letterSpacing: 0.5 },
 });
 
 // ─────────────────────────────────────────────
@@ -359,6 +348,10 @@ export default function HomeScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [selectedPlatformForConnect, setSelectedPlatformForConnect] = useState<PlatformId | null>(null);
+
+  // DETECCIÓN DINÁMICA DE PANTALLA
+  const { width } = useWindowDimensions();
+  const isMobile = width <= 768;
 
   useEffect(() => {
     const handler = (e: any) => { e.preventDefault(); (window as any).pwaPrompt = e; };
@@ -385,21 +378,32 @@ export default function HomeScreen() {
           
           <View style={styles.bgGrid} />
 
-          <View style={styles.wrapper}>
+          {/* CONTENEDOR RESPONSIVO */}
+          <View style={[
+            styles.wrapper, 
+            { 
+              width: isMobile ? '100%' : '100%', 
+              maxWidth: isMobile ? undefined : 480, 
+              marginHorizontal: isMobile ? 0 : 'auto' 
+            }
+          ]}>
             <ScrollView
               ref={scrollRef}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.scrollContent}
+              contentContainerStyle={{ 
+                flexGrow: 1, 
+                paddingTop: 20, 
+                paddingBottom: 30, 
+                paddingHorizontal: isMobile ? 16 : 0,
+                gap: 14 
+              }}
               keyboardShouldPersistTaps="handled"
             >
+              {/* FLUJO CONTINUO SIN HUECOS (Apilados directamente) */}
               <Zone1Header onInstallPress={handleInstallPress} />
               <Zone2Upload onPress={() => setShowUpload(true)} />
               <Zone3Compose />
               <Zone4Platforms onSelectPlatform={setSelectedPlatformForConnect} />
-              
-              {/* Espaciador flexible para empujar la Zona 5 al fondo naturalmente */}
-              <View style={styles.spacer} />
-
               <Zone5Publish onPress={onPublishClick} />
             </ScrollView>
           </View>
@@ -416,8 +420,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   flex: { flex: 1 },
-  wrapper: { flex: 1, width: '100%', maxWidth: 500, alignSelf: 'center' },
+  wrapper: { flex: 1 },
   bgGrid: { ...StyleSheet.absoluteFill as any, opacity: 0.05, backgroundImage: 'linear-gradient(#00F0FF 1px, transparent 1px), linear-gradient(90deg, #00F0FF 1px, transparent 1px)', backgroundSize: '30px 30px' } as any,
-  scrollContent: { flexGrow: 1, gap: 16, paddingBottom: 10 },
-  spacer: { flex: 1, minHeight: 16 }, // Elimina huecos bruscos, distribuye espacio
 });
