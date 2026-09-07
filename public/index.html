@@ -12,6 +12,11 @@
     <meta name="application-name" content="Alquimio" />
     <meta name="description" content="1-Tap Broadcast — publica en todas tus redes en un solo toque." />
 
+    <!-- Forzar limpieza de caché en el HTML para actualizaciones en tiempo real -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
     <title>Alquimio</title>
 
     <!-- PWA Manifest -->
@@ -35,17 +40,36 @@
   <body>
     <div id="root"></div>
 
-    <!-- Registro del Service Worker (activa instalación PWA en Chrome) -->
+    <!-- Registro Automático de Service Worker con Actualización en Tiempo Real -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then((reg) => {
-              console.log('Service Worker registrado con éxito:', reg.scope);
-            })
-            .catch((err) => {
-              console.log('Error al registrar el Service Worker:', err);
-            });
+          navigator.serviceWorker.register('/sw.js').then((reg) => {
+            console.log('Service Worker registrado con éxito:', reg.scope);
+            
+            reg.update(); // Forzar actualización de red
+
+            reg.onupdatefound = () => {
+              const installingWorker = reg.installing;
+              if (installingWorker == null) return;
+              installingWorker.onstatechange = () => {
+                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('Alquimio PWA: Nueva actualización detectada. Forzando actualización...');
+                  installingWorker.postMessage({ type: 'SKIP_WAITING' });
+                }
+              };
+            };
+          }).catch((err) => {
+            console.warn('Error al registrar el Service Worker:', err);
+          });
+
+          let refreshing = false;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+              refreshing = true;
+              window.location.reload(true);
+            }
+          });
         });
       }
     </script>

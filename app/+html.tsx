@@ -22,6 +22,11 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="description" content="Plataforma Universal de Publicación y Distribución en Bloque" />
         <meta name="theme-color" content="#080C14" />
         <meta name="background-color" content="#080C14" />
+        
+        {/* Forzar limpieza de caché en el HTML para actualizaciones en tiempo real */}
+        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta httpEquiv="Pragma" content="no-cache" />
+        <meta httpEquiv="Expires" content="0" />
 
         {/* PWA para iOS Safari */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -62,19 +67,39 @@ export default function Root({ children }: PropsWithChildren) {
           }}
         />
 
-        {/* Registro Automático de Service Worker */}
+        {/* Registro Automático de Service Worker con Actualización en Tiempo Real */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(function(reg) {
-                      console.log('Alquimio PWA: Service Worker activo.', reg.scope);
-                    })
-                    .catch(function(err) {
-                      console.warn('Alquimio PWA: Error al registrar SW:', err);
-                    });
+                  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                    console.log('Alquimio PWA: Service Worker activo.', reg.scope);
+                    
+                    // Forzar comprobación de red al iniciar
+                    reg.update();
+
+                    reg.onupdatefound = function() {
+                      var installingWorker = reg.installing;
+                      if (installingWorker == null) return;
+                      installingWorker.onstatechange = function() {
+                        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                          console.log('Alquimio PWA: Nueva versión detectada. Aplicando actualización...');
+                          installingWorker.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                      };
+                    };
+                  }).catch(function(err) {
+                    console.warn('Alquimio PWA: Error al registrar SW:', err);
+                  });
+
+                  var refreshing = false;
+                  navigator.serviceWorker.addEventListener('controllerchange', function() {
+                    if (!refreshing) {
+                      refreshing = true;
+                      window.location.reload(true);
+                    }
+                  });
                 });
               }
             `,
