@@ -1,6 +1,6 @@
 // ============================================================
 // src/screens/HomeScreen.tsx
-// ★ DISEÑO HOLOGRÁFICO CYBER-ALQUIMIA ★
+// DIRECTIVA TÉCNICA ESTRICTA: REDISEÑO TOTAL - ESTÁNDAR COMERCIAL ALQUIMIO STUDIO
 // ============================================================
 
 import React, { useRef, useState, useEffect } from 'react';
@@ -35,9 +35,7 @@ import { useAppStore } from '../store/useAppStore';
 import { usePublish } from '../hooks/usePublish';
 import { PublishModal } from '../components/publish/PublishModal';
 import { MediaPicker } from '../components/media/MediaPicker';
-import { MediaPreview } from '../components/media/MediaPreview';
 import { UploadMenuModal } from '../components/media/UploadMenuModal';
-import { AspectRatioSelector } from '../components/media/AspectRatioSelector';
 import { ConnectAccountModal } from '../components/auth/ConnectAccountModal';
 import {
   TikTokSvg,
@@ -49,36 +47,27 @@ import {
 } from '../components/ui/SocialIcons';
 import type { PlatformId } from '../types/platform.types';
 
-const { width: W, height: H } = Dimensions.get('window');
-
 // ─────────────────────────────────────────────
-// PALETA CYBER-ALQUIMIA
+// PALETA CYBER-ALQUIMIA EXACTA
 // ─────────────────────────────────────────────
 const C = {
-  bg: '#050811',
-  bgCard: 'rgba(5, 8, 17, 0.75)',
-  neonCyan: '#00E5FF',
-  neonCyanDim: 'rgba(0, 229, 255, 0.2)',
+  bg: '#040711',
+  bgCompose: '#090E1A',
+  cyanNeon: '#00F0FF',
+  cyanNodes: '#00FFD4',
   gold: '#FFD700',
-  goldDim: 'rgba(255, 215, 0, 0.2)',
-  neonGreen: '#00FF7F',
+  greenActive: '#00FF7F',
   white: '#FFFFFF',
-  textMuted: 'rgba(255,255,255,0.4)',
-  circuitBorder: 'rgba(0, 229, 255, 0.3)',
+  textMuted: 'rgba(255,255,255,0.5)',
 };
 
-type PlatId = 'tiktok' | 'instagram' | 'youtube' | 'whatsapp' | 'facebook';
+// ─────────────────────────────────────────────
+// UTILIDADES: EFECTOS GLOW Y CORNERS
+// ─────────────────────────────────────────────
+const getWebGlow = (color: string, radius: number) => 
+  Platform.OS === 'web' ? { boxShadow: `0 0 ${radius}px ${color}` } as any : { shadowColor: color, shadowRadius: radius, shadowOpacity: 1, elevation: 10 };
 
-const PLATFORMS: { id: PlatId; label: string; sub: string; color: string; SvgIcon: any }[] = [
-  { id: 'tiktok',    label: 'TikTok',                   sub: 'Francia',   color: '#FFFFFF', SvgIcon: TikTokSvg },
-  { id: 'instagram', label: 'Reels de Instagram',       sub: '@alquimio', color: '#E1306C', SvgIcon: InstagramSvg },
-  { id: 'youtube',   label: 'Cortometrajes de YouTube', sub: '@alquimio', color: '#FF0000', SvgIcon: YouTubeSvg },
-  { id: 'whatsapp',  label: 'WhatsApp (Empresas)',      sub: '@alquimio', color: '#25D366', SvgIcon: WhatsAppSvg },
-  { id: 'facebook',  label: 'Facebook',                 sub: '@alquimio', color: '#1877F2', SvgIcon: FacebookSvg },
-];
-
-// HUD Corners decorativos
-function TechCorners({ color = C.neonCyan, size = 12 }: { color?: string; size?: number }) {
+function TechCorners({ color = C.cyanNeon, size = 10 }: { color?: string; size?: number }) {
   const s = StyleSheet.create({
     tl: { position: 'absolute', top: 0, left: 0, width: size, height: size, borderTopWidth: 2, borderLeftWidth: 2, borderColor: color },
     tr: { position: 'absolute', top: 0, right: 0, width: size, height: size, borderTopWidth: 2, borderRightWidth: 2, borderColor: color },
@@ -89,106 +78,116 @@ function TechCorners({ color = C.neonCyan, size = 12 }: { color?: string; size?:
 }
 
 // ─────────────────────────────────────────────
-// HERO HOLOGRÁFICO
+// ZONA 1: PORTAL HOLOGRÁFICO VIVIENTE
 // ─────────────────────────────────────────────
-function HoloHeader({ onInstallPress }: { onInstallPress: () => void }) {
-  const rot1 = useSharedValue(0);
-  const rot2 = useSharedValue(0);
-  const glow = useSharedValue(0.5);
+function Zone1Header({ onInstallPress }: { onInstallPress: () => void }) {
+  const rot = useSharedValue(0);
+  const pulse = useSharedValue(0.4);
 
   useEffect(() => {
-    rot1.value = withRepeat(withTiming(360, { duration: 15000, easing: Easing.linear }), -1, false);
-    rot2.value = withRepeat(withTiming(-360, { duration: 12000, easing: Easing.linear }), -1, false);
-    glow.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.4, { duration: 2000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
+    rot.value = withRepeat(withTiming(360, { duration: 10000, easing: Easing.linear }), -1, false);
+    pulse.value = withRepeat(withSequence(
+      withTiming(0.8, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+      withTiming(0.4, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+    ), -1, true);
   }, []);
 
-  const ring1Style = useAnimatedStyle(() => ({ transform: [{ rotate: `${rot1.value}deg` }] }));
-  const ring2Style = useAnimatedStyle(() => ({ transform: [{ rotate: `${rot2.value}deg` }] }));
-  const glowStyle = useAnimatedStyle(() => ({ opacity: glow.value }));
+  const ringStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${rot.value}deg` }] }));
+  const pulseStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
 
   return (
-    <View style={hero.container}>
-      <LinearGradient colors={['rgba(0,229,255,0.05)', 'transparent']} style={StyleSheet.absoluteFill} />
+    <View style={z1.container}>
+      {/* Título */}
+      <Text style={[z1.title, getWebGlow('rgba(255, 215, 0, 0.6)', 15)]}>Alquimia</Text>
       
-      {/* Circuit lines */}
-      <View style={hero.grid} />
-      
-      <Text style={hero.brandName}>Alquimia</Text>
-
-      {/* Anillos Holográficos Animados */}
-      <View style={hero.emblemWrapper}>
-        <Animated.View style={[hero.ringCyan, ring1Style, glowStyle]}>
-          {[0, 90, 180, 270].map(deg => (
-            <View key={deg} style={[hero.particleCyan, { transform: [{ rotate: `${deg}deg` }, { translateY: -100 }] }]} />
-          ))}
-        </Animated.View>
-        
-        <Animated.View style={[hero.ringGold, ring2Style]}>
-           {[45, 135, 225, 315].map(deg => (
-            <View key={deg} style={[hero.particleGold, { transform: [{ rotate: `${deg}deg` }, { translateY: -70 }] }]} />
-          ))}
-        </Animated.View>
-
-        <View style={hero.letterHalo} />
-        <Text style={hero.letterA}>A</Text>
-      </View>
-
-      <TouchableOpacity onPress={onInstallPress} style={hero.topRight}>
-        <Animated.View style={[hero.pwaBadge, glowStyle]}>
-          <Text style={hero.pwaText}>⬇ INSTALAR PWA</Text>
-        </Animated.View>
+      <TouchableOpacity onPress={onInstallPress} style={z1.installBtn}>
+        <Text style={z1.installText}>⬇ INSTALAR PWA</Text>
       </TouchableOpacity>
+
+      {/* Portal 170px */}
+      <View style={z1.portal}>
+        {/* Glow de fondo animado */}
+        <Animated.View style={[z1.bgPulse, pulseStyle]} />
+
+        {/* Anillo en Rotación (10s 360deg) */}
+        <Animated.View style={[z1.ringOuter, ringStyle, getWebGlow('rgba(0, 240, 255, 0.4)', 10)]}>
+          {[0, 120, 240].map(deg => (
+            <View key={deg} style={[z1.node, { transform: [{ rotate: `${deg}deg` }, { translateY: -85 }] }]} />
+          ))}
+        </Animated.View>
+
+        {/* Letra Central 3D */}
+        <Text style={z1.letterA}>A</Text>
+      </View>
     </View>
   );
 }
 
-const hero = StyleSheet.create({
-  container: { width: '100%', height: 340, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  grid: { ...StyleSheet.absoluteFill as any, opacity: 0.1, backgroundImage: 'linear-gradient(#00E5FF 1px, transparent 1px), linear-gradient(90deg, #00E5FF 1px, transparent 1px)', backgroundSize: '40px 40px' } as any,
-  brandName: { position: 'absolute', top: 20, fontSize: 32, fontWeight: '800', color: C.gold, fontStyle: 'italic', letterSpacing: 3, textShadowColor: C.gold, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 15, zIndex: 10 },
-  emblemWrapper: { width: 220, height: 220, alignItems: 'center', justifyContent: 'center', position: 'relative', marginTop: 20 },
-  ringCyan: { position: 'absolute', width: 200, height: 200, borderRadius: 100, borderWidth: 1.5, borderColor: 'rgba(0,229,255,0.4)', alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed' },
-  particleCyan: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: C.neonCyan, shadowColor: C.neonCyan, shadowRadius: 8, shadowOpacity: 1, elevation: 10 },
-  ringGold: { position: 'absolute', width: 140, height: 140, borderRadius: 70, borderWidth: 1, borderColor: 'rgba(255,215,0,0.3)', alignItems: 'center', justifyContent: 'center' },
-  particleGold: { position: 'absolute', width: 4, height: 4, borderRadius: 2, backgroundColor: C.gold, shadowColor: C.gold, shadowRadius: 6, shadowOpacity: 1, elevation: 8 },
-  letterHalo: { position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,215,0,0.1)', shadowColor: C.gold, shadowRadius: 30, shadowOpacity: 0.6, elevation: 15 },
-  letterA: { fontSize: 76, fontWeight: '900', color: '#FFF', textShadowColor: C.gold, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 20 },
-  topRight: { position: 'absolute', top: 20, right: 16 },
-  pwaBadge: { backgroundColor: 'rgba(0, 229, 255, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: C.neonCyan, shadowColor: C.neonCyan, shadowRadius: 10, shadowOpacity: 0.5 },
-  pwaText: { color: C.neonCyan, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+const z1 = StyleSheet.create({
+  container: { height: 220, alignItems: 'center', justifyContent: 'center', paddingTop: 20, position: 'relative' },
+  installBtn: { position: 'absolute', top: 10, right: 16, backgroundColor: 'rgba(0, 240, 255, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: C.cyanNeon },
+  installText: { color: C.cyanNeon, fontSize: 10, fontWeight: '800' },
+  title: { fontSize: 28, fontWeight: '800', color: C.gold, fontStyle: 'italic', letterSpacing: 4, marginBottom: 16 },
+  portal: { width: 170, height: 170, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  bgPulse: { position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255, 215, 0, 0.15)', shadowColor: C.gold, shadowRadius: 30, shadowOpacity: 0.8 },
+  ringOuter: { position: 'absolute', width: 170, height: 170, borderRadius: 85, borderWidth: 1.5, borderColor: 'rgba(0, 255, 212, 0.3)', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+  node: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: C.cyanNodes, shadowColor: C.cyanNodes, shadowRadius: 8, shadowOpacity: 1 },
+  letterA: { fontSize: 85, fontWeight: '900', color: '#FFFFFF', textShadowColor: '#B8860B', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 5 },
 });
 
 // ─────────────────────────────────────────────
-// COMPOSICIÓN TÁCTICA
+// ZONA 2: MÓDULO UNIFICADO UPLOAD
 // ─────────────────────────────────────────────
-function ComposeSection() {
-  const { caption, hashtags, setCaption, addHashtag, removeHashtag, clearHashtags, aiLoading, setAiLoading, selectedMedia } = useAppStore();
-  const [hashInput, setHashInput] = useState('');
-  const EMOJIS = ['😊', '🔥', '🚀', '💡', '✨', '🎯', '💎', '⚡'];
-
-  const glow = useSharedValue(0.3);
-  useEffect(() => {
-    glow.value = withRepeat(
-      withSequence(
-        withTiming(0.8, { duration: 1500 }),
-        withTiming(0.3, { duration: 1500 })
-      ),
-      -1,
-      true
-    );
-  }, []);
+function Zone2Upload({ onPress }: { onPress: () => void }) {
+  const { selectedMedia, uploadProgress } = useAppStore();
   
-  const glowStyle = useAnimatedStyle(() => ({
-    borderColor: `rgba(0, 229, 255, ${glow.value})`,
-    shadowOpacity: glow.value
-  }));
+  return (
+    <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={[z2.box, getWebGlow('rgba(0, 240, 255, 0.4)', 12)]}>
+      <TechCorners color={C.cyanNeon} size={12} />
+      <LinearGradient colors={['rgba(0, 240, 255, 0.08)', 'rgba(0, 240, 255, 0.02)']} style={StyleSheet.absoluteFill} />
+
+      {!selectedMedia ? (
+        <View style={z2.inner}>
+          <View style={z2.iconWrap}>
+            <CloudUploadSvg size={28} color={C.cyanNeon} />
+          </View>
+          <Text style={z2.title}>UPLOAD & DISTRIBUTE</Text>
+          <Text style={z2.sub}>Video / Foto / PDF</Text>
+        </View>
+      ) : (
+        <View style={z2.innerMedia}>
+          <View style={z2.mediaInfo}>
+            <CloudUploadSvg size={24} color={C.cyanNeon} />
+            <Text style={z2.mediaName} numberOfLines={1}>{selectedMedia.uri.split('/').pop() || 'Archivo Seleccionado'}</Text>
+          </View>
+          <View style={z2.progressTrack}>
+            <Animated.View style={[z2.progressBar, { width: `${uploadProgress * 100}%` }, getWebGlow(C.cyanNeon, 8)]} />
+          </View>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+const z2 = StyleSheet.create({
+  box: { height: 95, marginHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(0, 240, 255, 0.5)', overflow: 'hidden', justifyContent: 'center' },
+  inner: { alignItems: 'center', justifyContent: 'center', gap: 4 },
+  iconWrap: { marginBottom: 2 },
+  title: { color: C.cyanNeon, fontSize: 13, fontWeight: '800', letterSpacing: 2 },
+  sub: { color: C.textMuted, fontSize: 10, letterSpacing: 1 },
+  innerMedia: { paddingHorizontal: 20, justifyContent: 'center', flex: 1, gap: 12 },
+  mediaInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  mediaName: { color: C.white, fontSize: 14, fontWeight: '600', flex: 1 },
+  progressTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' },
+  progressBar: { height: '100%', backgroundColor: C.cyanNeon },
+});
+
+// ─────────────────────────────────────────────
+// ZONA 3: PANEL TÁCTICO DE REDACCIÓN E IA
+// ─────────────────────────────────────────────
+function Zone3Compose() {
+  const { caption, setCaption, aiLoading, setAiLoading, selectedMedia } = useAppStore();
+  const EMOJIS = ['😊', '🔥', '🚀', '💡', '✨', '🎯', '💎', '⚡'];
 
   const handleOptimize = async () => {
     if (!caption.trim()) return;
@@ -196,268 +195,174 @@ function ComposeSection() {
     const mediaType = selectedMedia ? selectedMedia.type : 'video';
     const { generateSmartCaptions } = await import('../services/aiService');
     const result = await generateSmartCaptions(caption, mediaType);
-    setCaption(result.caption);
-    clearHashtags();
-    result.hashtags.forEach(addHashtag);
+    setCaption(result.caption + (result.hashtags.length ? '\n\n' + result.hashtags.map(h => `#${h}`).join(' ') : ''));
     setAiLoading(false);
   };
 
   return (
-    <Animated.View style={[comp.wrapper, glowStyle]}>
-      <TechCorners color={C.neonCyan} size={15} />
+    <View style={z3.box}>
+      <TechCorners color={C.cyanNeon} size={8} />
       
-      <View style={comp.aiHeader}>
-        <TouchableOpacity onPress={handleOptimize} disabled={aiLoading || !caption.trim()} style={[comp.aiBtn, (!caption.trim() || aiLoading) && comp.aiBtnDisabled]}>
-          {aiLoading ? (
-            <ActivityIndicator size="small" color={C.gold} />
-          ) : (
-            <><Text style={comp.aiIcon}>✨</Text><Text style={comp.aiText}>IA OPTIMIZE</Text></>
-          )}
-        </TouchableOpacity>
-      </View>
-
       <TextInput
         value={caption}
         onChangeText={setCaption}
-        placeholder="Redacta tu transmisión. La IA maximizará tu alcance..."
+        placeholder="Redacta tu transmisión y hashtags aquí..."
         placeholderTextColor={C.textMuted}
         multiline
-        maxLength={500}
-        style={comp.input}
+        style={z3.input}
       />
 
-      {hashtags.length > 0 && (
-        <View style={comp.hashRow}>
-          {hashtags.map((h, i) => (
-            <TouchableOpacity key={i} onPress={() => removeHashtag(h)}>
-              <Text style={comp.hashChip}>{h} ✕</Text>
+      <View style={z3.bottomBar}>
+        <TouchableOpacity onPress={handleOptimize} disabled={aiLoading || !caption.trim()} style={[z3.aiBtn, getWebGlow('rgba(255, 215, 0, 0.4)', 8)]}>
+          {aiLoading ? <ActivityIndicator size="small" color={C.gold} /> : <Text style={z3.aiText}>✨ Optimizar con IA</Text>}
+        </TouchableOpacity>
+        
+        <View style={z3.emojiRow}>
+          {EMOJIS.map(e => (
+            <TouchableOpacity key={e} onPress={() => { Haptics.selectionAsync(); setCaption(caption + e); }}>
+              <Text style={z3.emoji}>{e}</Text>
             </TouchableOpacity>
           ))}
         </View>
-      )}
-
-      <View style={comp.hashInputRow}>
-        <Text style={comp.hashPrefix}>#</Text>
-        <TextInput
-          value={hashInput}
-          onChangeText={setHashInput}
-          placeholder="Añadir hashtag..."
-          placeholderTextColor={C.textMuted}
-          style={comp.hashInput}
-          onSubmitEditing={() => {
-            if (hashInput.trim()) {
-              addHashtag(hashInput.trim());
-              setHashInput('');
-            }
-          }}
-          returnKeyType="done"
-        />
-        {hashInput.trim().length > 0 && (
-          <TouchableOpacity
-            onPress={() => {
-              addHashtag(hashInput.trim());
-              setHashInput('');
-            }}
-            style={comp.addBtn}
-          >
-            <Text style={comp.addBtnText}>+ INYECTAR</Text>
-          </TouchableOpacity>
-        )}
       </View>
-
-      <View style={comp.emojiRow}>
-        {EMOJIS.map((e) => (
-          <TouchableOpacity key={e} onPress={() => setCaption(caption + e)}>
-            <Text style={comp.emoji}>{e}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </Animated.View>
+    </View>
   );
 }
 
-const comp = StyleSheet.create({
-  wrapper: { backgroundColor: C.bgCard, borderWidth: 1, padding: 16, marginHorizontal: 16, borderRadius: 8, shadowColor: C.neonCyan, shadowRadius: 15, shadowOffset: { width: 0, height: 0 }, elevation: 5 },
-  aiHeader: { alignItems: 'flex-end', marginBottom: 5 },
-  aiBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 215, 0, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: C.gold, gap: 6, shadowColor: C.gold, shadowRadius: 10, shadowOpacity: 0.5 },
-  aiBtnDisabled: { opacity: 0.3, shadowOpacity: 0 },
-  aiIcon: { fontSize: 12 },
-  aiText: { color: C.gold, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  input: { color: C.white, fontSize: 15, minHeight: 120, textAlignVertical: 'top', lineHeight: 22 },
-  hashRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 8 },
-  hashChip: { color: C.neonCyan, fontSize: 12, fontWeight: '700', backgroundColor: 'rgba(0,229,255,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(0,229,255,0.4)' },
-  hashInputRow: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: C.circuitBorder, paddingTop: 12, gap: 8 },
-  hashPrefix: { color: C.neonCyan, fontSize: 16, fontWeight: '800' },
-  hashInput: { flex: 1, color: C.white, fontSize: 14, paddingVertical: 4 },
-  addBtn: { backgroundColor: 'rgba(0,229,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, borderWidth: 1, borderColor: C.neonCyan },
-  addBtnText: { color: C.neonCyan, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  emojiRow: { flexDirection: 'row', gap: 12, justifyContent: 'flex-end', paddingTop: 10 },
-  emoji: { fontSize: 20 },
+const z3 = StyleSheet.create({
+  box: { height: 110, marginHorizontal: 16, backgroundColor: C.bgCompose, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.3)', padding: 10, justifyContent: 'space-between' },
+  input: { flex: 1, color: C.white, fontSize: 13, textAlignVertical: 'top', padding: 0 },
+  bottomBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(0, 229, 255, 0.1)', paddingTop: 8, marginTop: 4 },
+  aiBtn: { backgroundColor: 'rgba(255, 215, 0, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4, borderWidth: 0.5, borderColor: C.gold },
+  aiText: { color: C.gold, fontSize: 10, fontWeight: '700' },
+  emojiRow: { flexDirection: 'row', gap: 6 },
+  emoji: { fontSize: 14 },
 });
 
 // ─────────────────────────────────────────────
-// PLATAFORMAS (Full Width Rows)
+// ZONA 4: PLATAFORMAS SINCRONIZADAS
 // ─────────────────────────────────────────────
-function PlatformsSection({ onSelectPlatform }: { onSelectPlatform: (id: PlatformId) => void }) {
+const PLATFORMS = [
+  { id: 'tiktok', label: 'TikTok', sub: 'Francia', color: '#FFFFFF', SvgIcon: TikTokSvg },
+  { id: 'instagram', label: 'Reels de Instagram', sub: '@alquimio', color: '#E1306C', SvgIcon: InstagramSvg },
+  { id: 'youtube', label: 'Cortometrajes de YouTube', sub: '@alquimio', color: '#FF0000', SvgIcon: YouTubeSvg },
+  { id: 'whatsapp', label: 'WhatsApp (Business)', sub: '@alquimio', color: '#25D366', SvgIcon: WhatsAppSvg },
+  { id: 'facebook', label: 'Facebook', sub: '@alquimio', color: '#1877F2', SvgIcon: FacebookSvg },
+];
+
+function Zone4Platforms({ onSelectPlatform }: { onSelectPlatform: (id: PlatformId) => void }) {
   const { activePlatforms, togglePlatform, platformHandles } = useAppStore();
 
   return (
-    <View style={plat.container}>
-      {PLATFORMS.map((p) => {
-        const isActive = activePlatforms.has(p.id as PlatformId);
-        const customSub = platformHandles[p.id as PlatformId] || p.sub;
+    <View style={z4.container}>
+      <Text style={z4.title}>Plataformas Sincronizadas</Text>
+      
+      <View style={z4.list}>
+        {PLATFORMS.map((p) => {
+          const isActive = activePlatforms.has(p.id as PlatformId);
+          const customSub = platformHandles[p.id as PlatformId] || p.sub;
 
-        return (
-          <View key={p.id} style={plat.row}>
-            <TouchableOpacity onPress={() => onSelectPlatform(p.id as PlatformId)} style={plat.touchArea}>
-              <View style={[
-                plat.iconWrap,
-                {
-                  backgroundColor: p.color + '15',
-                  borderColor: isActive ? p.color : p.color + '40',
-                  shadowColor: isActive ? p.color : 'transparent',
-                  shadowRadius: 10,
-                  shadowOpacity: 0.8
-                }
-              ]}>
-                <p.SvgIcon size={24} />
-              </View>
+          return (
+            <View key={p.id} style={z4.row}>
+              <TouchableOpacity onPress={() => onSelectPlatform(p.id as PlatformId)} style={z4.touchArea}>
+                <View style={z4.iconWrap}><p.SvgIcon size={24} /></View>
+                <View style={z4.textWrap}>
+                  <Text style={[z4.label, isActive && { color: C.white }]}>{p.label}</Text>
+                  <Text style={z4.sub}>{customSub}</Text>
+                </View>
+              </TouchableOpacity>
               
-              <View style={plat.textWrap}>
-                <Text style={[
-                  plat.label,
-                  isActive && { color: C.white, textShadowColor: p.color, textShadowRadius: 10 }
-                ]}>
-                  {p.label}
-                </Text>
-                <Text style={plat.sub}>{customSub}</Text>
-              </View>
-            </TouchableOpacity>
-            
-            <Switch
-              value={isActive}
-              onValueChange={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                togglePlatform(p.id as PlatformId);
-              }}
-              trackColor={{ false: 'rgba(255,255,255,0.1)', true: C.neonGreen }}
-              thumbColor="#FFFFFF"
-              style={{ transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }] }}
-            />
-          </View>
-        );
-      })}
+              <Switch
+                value={isActive}
+                onValueChange={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); togglePlatform(p.id as PlatformId); }}
+                trackColor={{ false: 'rgba(255,255,255,0.1)', true: C.greenActive }}
+                thumbColor="#FFF"
+                style={[isActive ? getWebGlow(C.greenActive, 10) : {}, { transform: [{ scale: 0.95 }] }]}
+              />
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
-const plat = StyleSheet.create({
-  container: { backgroundColor: 'rgba(5, 8, 17, 0.8)', borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.circuitBorder, paddingVertical: 10 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 20, minHeight: 64, borderBottomWidth: 1, borderBottomColor: 'rgba(0,229,255,0.1)' },
-  touchArea: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 16 },
-  iconWrap: { width: 42, height: 42, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+const z4 = StyleSheet.create({
+  container: { marginHorizontal: 16 },
+  title: { color: C.white, fontSize: 14, fontWeight: '700', marginBottom: 10, letterSpacing: 0.5 },
+  list: { gap: 6 },
+  row: { minHeight: 58, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  touchArea: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconWrap: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   textWrap: { flex: 1 },
-  label: { color: '#ccc', fontSize: 16, fontWeight: '600', letterSpacing: 0.5 },
-  sub: { color: C.neonCyan, fontSize: 12, marginTop: 2, opacity: 0.8 },
+  label: { color: '#ccc', fontSize: 14, fontWeight: '600' },
+  sub: { color: C.textMuted, fontSize: 11, marginTop: 2 },
 });
 
 // ─────────────────────────────────────────────
-// BOTÓN PUBLICAR NEÓN
+// ZONA 5: BOTÓN MAESTRO
 // ─────────────────────────────────────────────
-function PublishButton({ onPress }: { onPress: () => void }) {
-  const glow = useSharedValue(0.4);
+function Zone5Publish({ onPress }: { onPress: () => void }) {
+  const pulse = useSharedValue(0.6);
 
   useEffect(() => {
-    glow.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1500 }),
-        withTiming(0.4, { duration: 1500 })
-      ),
-      -1,
-      true
+    pulse.value = withRepeat(
+      withSequence(withTiming(1, { duration: 1500 }), withTiming(0.6, { duration: 1500 })),
+      -1, true
     );
   }, []);
-  
+
   const glowStyle = useAnimatedStyle(() => ({
-    shadowOpacity: glow.value,
-    borderColor: `rgba(0, 229, 255, ${0.5 + glow.value/2})`
+    borderColor: `rgba(0, 240, 255, ${pulse.value})`,
+    shadowOpacity: pulse.value,
   }));
 
   return (
-    <View style={pubBtn.outer}>
-      <TouchableOpacity
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          onPress();
-        }}
-        activeOpacity={0.8}
-      >
-        <Animated.View style={[pubBtn.btn, glowStyle]}>
-          <LinearGradient colors={['rgba(0,229,255,0.15)', 'rgba(0,100,255,0.15)']} style={StyleSheet.absoluteFill} />
-          <Text style={pubBtn.text}>PUBLICAR EN BLOQUE</Text>
-          <TechCorners color={C.neonCyan} size={10} />
+    <View style={z5.container}>
+      <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); onPress(); }} activeOpacity={0.8}>
+        <Animated.View style={[z5.btn, glowStyle, getWebGlow(C.cyanNeon, 15)]}>
+          <LinearGradient colors={['rgba(0, 240, 255, 0.2)', 'rgba(0, 100, 255, 0.1)']} style={StyleSheet.absoluteFill} />
+          <TechCorners color={C.cyanNeon} size={8} />
+          <Text style={[z5.text, getWebGlow(C.cyanNeon, 8)]}>⚡ PUBLICAR EN BLOQUE</Text>
         </Animated.View>
       </TouchableOpacity>
+      
+      <Text style={z5.footerText}>Alquimio v1.0 • Creado por Israel Montás • © 2026 Todos los derechos reservados</Text>
     </View>
   );
 }
 
-const pubBtn = StyleSheet.create({
-  outer: { marginHorizontal: 24, marginTop: 20, marginBottom: 24 },
-  btn: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 2, shadowColor: C.neonCyan, shadowRadius: 20, shadowOffset: { width: 0, height: 0 }, elevation: 15, position: 'relative', overflow: 'hidden', backgroundColor: 'rgba(5, 8, 17, 0.9)' },
-  text: { color: C.neonCyan, fontSize: 16, fontWeight: '900', letterSpacing: 3, textShadowColor: C.neonCyan, textShadowRadius: 10 },
+const z5 = StyleSheet.create({
+  container: { marginHorizontal: 16, marginTop: 10, paddingBottom: 20 },
+  btn: { height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1.5, backgroundColor: '#090E1A', overflow: 'hidden' },
+  text: { color: C.white, fontSize: 15, fontWeight: '900', letterSpacing: 2 },
+  footerText: { color: C.textMuted, fontSize: 10, textAlign: 'center', marginTop: 16, letterSpacing: 0.5 },
 });
 
 // ─────────────────────────────────────────────
-// PANTALLA PRINCIPAL
+// PANTALLA PRINCIPAL (RAÍZ)
 // ─────────────────────────────────────────────
 export default function HomeScreen() {
-  const { selectedMedia, uploadProgress, activePlatforms } = useAppStore();
+  const { selectedMedia } = useAppStore();
   const { handlePublish } = usePublish();
   const scrollRef = useRef<ScrollView>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [selectedPlatformForConnect, setSelectedPlatformForConnect] = useState<PlatformId | null>(null);
-  const [pwaPrompt, setPwaPrompt] = useState<any>(null);
 
+  // Instalar PWA lógica
   useEffect(() => {
-    const handler = (e: any) => {
-      e.preventDefault();
-      setPwaPrompt(e);
-    };
-    if (typeof window !== 'undefined') {
-      window.addEventListener('beforeinstallprompt', handler);
-      return () => window.removeEventListener('beforeinstallprompt', handler);
-    }
+    const handler = (e: any) => { e.preventDefault(); (window as any).pwaPrompt = e; };
+    if (typeof window !== 'undefined') window.addEventListener('beforeinstallprompt', handler);
   }, []);
 
-  const handleUploadPress = () => {
-    setShowUpload(true);
-    setTimeout(() => scrollRef.current?.scrollTo({ y: 250, animated: true }), 100);
-  };
-
-  const handleInstallPress = async () => {
-    if (pwaPrompt) {
-      pwaPrompt.prompt();
-      const choice = await pwaPrompt.userChoice;
-      if (choice && choice.outcome === 'accepted') {
-        setPwaPrompt(null);
-      }
-    } else {
-      Alert.alert(
-        'Instalar Alquimio Studio (PWA)',
-        Platform.OS === 'web' && /iPhone|iPad|iPod/.test(typeof navigator !== 'undefined' ? navigator.userAgent : '')
-          ? 'Para instalar en tu iPhone o iPad:\n1. Toca el botón Compartir en Safari.\n2. Elige "Agregar a pantalla de inicio".\n3. ¡Listo! La app se abrirá como nativa.'
-          : 'Para instalar en este navegador:\n1. Toca el icono de instalación (o tres puntos ⋮ en Chrome/Edge).\n2. Selecciona "Instalar Alquimio Studio".',
-        [{ text: 'Entendido' }]
-      );
-    }
+  const handleInstallPress = () => {
+    const promptEvent = (window as any).pwaPrompt;
+    if (promptEvent) promptEvent.prompt();
+    else Alert.alert('Instalar PWA', 'Usa las opciones de tu navegador ("Agregar a inicio").', [{ text: 'OK' }]);
   };
 
   const onPublishClick = () => {
-    if (!selectedMedia) {
-      handleUploadPress();
-      return;
-    }
+    if (!selectedMedia) return setShowUpload(true);
     handlePublish();
   };
 
@@ -466,87 +371,41 @@ export default function HomeScreen() {
       <StatusBar barStyle="light-content" backgroundColor={C.bg} translucent={false} />
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.flex}
-        >
-          {/* Fondo principal con rejilla tecnológica si es web */}
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+          
+          {/* Fondo Grafito con Patrón de Cuadrícula Tecnológica */}
           <View style={styles.bgGrid} />
 
-          <ScrollView
-            ref={scrollRef}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Contenedor flexible principal para empujar el botón al fondo */}
-            <View style={styles.topFlex}>
-              <HoloHeader onInstallPress={handleInstallPress} />
-
-              <View style={[styles.mediaBlock, { shadowColor: C.neonCyan, shadowRadius: 15, shadowOpacity: 0.3 }]}>
-                <TechCorners color={C.neonCyan} size={15} />
-                {selectedMedia ? (
-                  <>
-                    <MediaPreview media={selectedMedia} uploadProgress={uploadProgress} />
-                    <AspectRatioSelector />
-                  </>
-                ) : (
-                  <MediaPicker onOpenMenu={handleUploadPress} />
-                )}
-              </View>
-
-              <View style={styles.sep} />
-              <ComposeSection />
-              <View style={styles.sep} />
-              
-              <PlatformsSection onSelectPlatform={(id) => setSelectedPlatformForConnect(id)} />
-              
-              {/* Espaciador expansivo para empujar contenido inferior */}
-              <View style={{ flexGrow: 1, minHeight: 40 }} />
-            </View>
-
-            <View style={styles.bottomAnchor}>
-              <PublishButton onPress={onPublishClick} />
-              
-              {activePlatforms.size > 0 && (
-                <Text style={styles.netCount}>
-                  {activePlatforms.size} CORE{activePlatforms.size !== 1 ? 'S' : ''} SYNC
-                </Text>
-              )}
-              
-              <View style={styles.footer}>
-                <View style={styles.footerLine} />
-                <Text style={styles.footerText}>ALQUIMIO V2.0 · INGENIERÍA ISRAEL MONTÁS</Text>
-                <View style={styles.footerLine} />
-              </View>
-            </View>
-            
-          </ScrollView>
+          {/* Enfoque 100% fluido con ScrollView dinámico */}
+          <View style={styles.wrapper}>
+            <ScrollView
+              ref={scrollRef}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Zone1Header onInstallPress={handleInstallPress} />
+              <Zone2Upload onPress={() => setShowUpload(true)} />
+              <Zone3Compose />
+              <Zone4Platforms onSelectPlatform={setSelectedPlatformForConnect} />
+              <Zone5Publish onPress={onPublishClick} />
+            </ScrollView>
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      {/* Modales Interactivos del Sistema */}
+      {/* Modales del Sistema */}
       <UploadMenuModal visible={showUpload} onClose={() => setShowUpload(false)} />
-      <ConnectAccountModal
-        platformId={selectedPlatformForConnect}
-        onClose={() => setSelectedPlatformForConnect(null)}
-      />
+      <ConnectAccountModal platformId={selectedPlatformForConnect} onClose={() => setSelectedPlatformForConnect(null)} />
       <PublishModal />
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.bg, minHeight: '100%' as any },
-  flex: { flex: 1, width: '100%' },
-  bgGrid: { ...StyleSheet.absoluteFill as any, opacity: 0.05, backgroundImage: 'linear-gradient(#00E5FF 1px, transparent 1px), linear-gradient(90deg, #00E5FF 1px, transparent 1px)', backgroundSize: '40px 40px' } as any,
-  scroll: { flexGrow: 1, paddingBottom: 16 },
-  topFlex: { flex: 1 },
-  mediaBlock: { marginHorizontal: 16, marginTop: -20, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(0,229,255,0.4)', backgroundColor: C.bgCard, overflow: 'hidden', position: 'relative', elevation: 10 },
-  sep: { height: 24 },
-  bottomAnchor: { paddingBottom: 10 },
-  netCount: { textAlign: 'center', color: C.neonCyan, fontSize: 10, fontWeight: '800', letterSpacing: 2, marginTop: -10, textShadowColor: C.neonCyan, textShadowRadius: 10 },
-  footer: { alignItems: 'center', marginTop: 24, marginHorizontal: 30, gap: 10 },
-  footerLine: { width: '100%', height: 1, backgroundColor: 'rgba(0,229,255,0.2)' },
-  footerText: { color: 'rgba(0,229,255,0.4)', fontSize: 9, textAlign: 'center', letterSpacing: 2, fontWeight: '700' },
+  safe: { flex: 1, backgroundColor: C.bg },
+  flex: { flex: 1 },
+  wrapper: { flex: 1, width: '100%', maxWidth: 500, alignSelf: 'center' },
+  bgGrid: { ...StyleSheet.absoluteFill as any, opacity: 0.05, backgroundImage: 'linear-gradient(#00F0FF 1px, transparent 1px), linear-gradient(90deg, #00F0FF 1px, transparent 1px)', backgroundSize: '30px 30px' } as any,
+  scrollContent: { flexGrow: 1, minHeight: '100%' as any, gap: 14, paddingBottom: 10 },
 });
