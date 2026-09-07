@@ -17,4 +17,3 @@ web-build/
 .env
 .env.local
 .env.*.local
-SUBIR_A_GITHUB.bat
