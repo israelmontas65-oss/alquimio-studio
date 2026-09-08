@@ -40,34 +40,37 @@
   <body>
     <div id="root"></div>
 
-    <!-- Registro Automático de Service Worker con Actualización en Tiempo Real -->
+    <!-- Registro Automático de Service Worker con Auto-Actualización Transparente -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').then((reg) => {
-            console.log('Service Worker registrado con éxito:', reg.scope);
+            console.log('Alquimio SW registrado:', reg.scope);
             
-            reg.update(); // Forzar actualización de red
+            // Comprobación forzada al iniciar
+            reg.update();
 
             reg.onupdatefound = () => {
               const installingWorker = reg.installing;
               if (installingWorker == null) return;
               installingWorker.onstatechange = () => {
                 if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  console.log('Alquimio PWA: Nueva actualización detectada. Forzando actualización...');
+                  console.log('Alquimio PWA: Nueva versión detectada. Activando...');
                   installingWorker.postMessage({ type: 'SKIP_WAITING' });
                 }
               };
             };
           }).catch((err) => {
-            console.warn('Error al registrar el Service Worker:', err);
+            console.warn('Error al registrar Service Worker:', err);
           });
 
+          // Cuando el nuevo Service Worker toma el control, recarga automáticamente
           let refreshing = false;
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (!refreshing) {
               refreshing = true;
-              window.location.reload(true);
+              console.log('Alquimio PWA: Nuevo controlador activo. Recargando con los nuevos cambios...');
+              window.location.reload();
             }
           });
         });

@@ -67,7 +67,7 @@ export default function Root({ children }: PropsWithChildren) {
           }}
         />
 
-        {/* Registro Automático de Service Worker con Actualización en Tiempo Real */}
+        {/* Registro Automático de Service Worker con Auto-Actualización Transparente */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -97,7 +97,8 @@ export default function Root({ children }: PropsWithChildren) {
                   navigator.serviceWorker.addEventListener('controllerchange', function() {
                     if (!refreshing) {
                       refreshing = true;
-                      window.location.reload(true);
+                      console.log('Alquimio PWA: Nuevo controlador activo. Recargando con los nuevos cambios...');
+                      window.location.reload();
                     }
                   });
                 });
