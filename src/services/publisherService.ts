@@ -5,6 +5,7 @@
 // ============================================================
 
 import { getToken, isTokenValid } from '../auth/tokenManager';
+import { getValidTikTokToken } from './tiktokAuthService';
 import { TikTokAdapter } from './adapters/TikTokAdapter';
 import { MetaAdapter } from './adapters/MetaAdapter';
 import { YouTubeAdapter } from './adapters/YouTubeAdapter';
@@ -32,8 +33,6 @@ function createAdapter(platformId: PlatformId): IPublishAdapter {
     case 'youtube':
       return new YouTubeAdapter();
     case 'whatsapp':
-      // WhatsApp Business Cloud API requiere integración server-side.
-      // Por ahora retornamos un adaptador stub.
       return createWhatsAppStub();
     default:
       throw new Error(`Adaptador no disponible para: ${platformId}`);
@@ -62,11 +61,6 @@ function createWhatsAppStub(): IPublishAdapter {
 }
 
 // ── Función principal de publicación ─────────────────────────
-
-/**
- * Publica el payload en todas las plataformas activas de forma
- * concurrente, reportando el progreso individual de cada una.
- */
 export async function publishAll(payload: PublishPayload): Promise<PlatformPublishResult[]> {
   const { updatePlatformResult, setPublishSessionStatus } = useAppStore.getState();
 
@@ -113,39 +107,90 @@ async function publishToPlatform(
 
   try {
     reportProgress(0, 'uploading');
-    
-    // Simulate initial latency
-    await new Promise(r => setTimeout(r, Math.random() * 800 + 500));
-    
-    // Simular subida (Uploading)
-    for (let i = 10; i <= 80; i += Math.floor(Math.random() * 15) + 5) {
-      reportProgress(Math.min(i, 80), 'uploading');
-      await new Promise(r => setTimeout(r, 400));
+
+    // ── Publicación 100% Real para TikTok ───────────────────
+    if (platformId === 'tiktok') {
+      const token = await getValidTikTokToken();
+      if (!token) {
+        throw new Error(
+          'Cuenta de TikTok no conectada o autorización expirada. Abre el modal de TikTok y conecta tu cuenta oficial.'
+        );
+      }
+
+      if (!payload.media) {
+        throw new Error('No hay video seleccionado para publicar en TikTok.');
+      }
+
+      const fullCaption = [payload.caption, ...payload.hashtags].filter(Boolean).join(' ');
+      const adapter = new TikTokAdapter();
+
+      reportProgress(5, 'uploading');
+
+      // Subir video binario a TikTok Content Posting API v2
+      const publishId = await adapter.upload(
+        payload.media,
+        token,
+        (progress) => reportProgress(progress, 'uploading'),
+        { title: fullCaption }
+      );
+
+      reportProgress(90, 'processing');
+
+      // Monitorear estado hasta finalización
+      const statusRes = await adapter.pollStatus(publishId, token, 2500, 24);
+
+      if (statusRes.status === 'error') {
+        throw new Error(statusRes.errorMessage || 'Fallo en el procesamiento del video en TikTok.');
+      }
+
+      const finalResult: PlatformPublishResult = {
+        platformId: 'tiktok',
+        status: 'success',
+        progress: 100,
+        postUrl: statusRes.postUrl || `https://www.tiktok.com`,
+        postId: publishId,
+      };
+
+      onUpdate(finalResult);
+      return finalResult;
     }
 
-    reportProgress(85, 'processing');
-    
-    // Simular procesamiento (Processing)
-    await new Promise(r => setTimeout(r, Math.random() * 1500 + 1000));
-    reportProgress(95, 'processing');
-    await new Promise(r => setTimeout(r, 1000));
+    // ── Otras plataformas (Meta, YouTube, WhatsApp) ─────────
+    const adapter = createAdapter(platformId);
+    const tokenObj = await getToken(platformId);
+    const token = tokenObj?.accessToken || 'token_placeholder';
 
+    reportProgress(15, 'uploading');
+    if (!payload.media) {
+      throw new Error(`Selecciona un archivo multimedia para publicar en ${platformId}.`);
+    }
+
+    const uploadedId = await adapter.upload(payload.media, token, (progress) =>
+      reportProgress(progress, 'uploading')
+    );
+
+    reportProgress(85, 'processing');
+    const postId = await adapter.publish(payload, uploadedId, token);
+
+    const statusRes = await adapter.getStatus(postId, token);
     const finalResult: PlatformPublishResult = {
       platformId,
-      status: 'success',
-      progress: 100,
-      postUrl: `https://${platformId}.com/alquimio_demo`,
-      postId: `mock_${Date.now()}`,
+      status: statusRes.status === 'error' ? 'error' : 'success',
+      progress: statusRes.status === 'error' ? 0 : 100,
+      postUrl: statusRes.postUrl,
+      postId,
+      errorMessage: statusRes.errorMessage,
     };
 
     onUpdate(finalResult);
     return finalResult;
   } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Error en la publicación.';
     const errResult: PlatformPublishResult = {
       platformId,
       status: 'error',
       progress: 0,
-      errorMessage: 'Error en simulación',
+      errorMessage: message,
     };
     onUpdate(errResult);
     return errResult;

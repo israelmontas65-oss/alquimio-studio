@@ -4,6 +4,7 @@
 // Docs: https://developers.tiktok.com/doc/content-posting-api-reference-direct-post
 // ============================================================
 
+import { Platform } from 'react-native';
 import axios from 'axios';
 import { BaseAdapter, type ProgressCallback } from './BaseAdapter';
 import type { MediaFile } from '../../types/media.types';
@@ -34,15 +35,23 @@ export class TikTokAdapter extends BaseAdapter {
   async upload(
     media: MediaFile,
     token: string,
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
+    options?: { caption?: string; title?: string }
   ): Promise<string> {
-    if (media.type === 'image') {
-      throw new Error('TikTok requiere formato de video para esta publicación.');
+    if (media.type !== 'video') {
+      throw new Error('TikTok requiere formato de video (.mp4, .webm o .mov).');
     }
 
-    const caption = ''; // Se añade en publish()
+    if (media.duration && media.duration < 3) {
+      throw new Error('El video debe durar al menos 3 segundos para TikTok.');
+    }
+    if (media.duration && media.duration > 600) {
+      throw new Error('El video supera los 10 minutos permitidos por TikTok.');
+    }
 
-    // Inicializar el post
+    const caption = (options?.title || options?.caption || '').slice(0, 2200);
+
+    // Inicializar el post en TikTok Content Posting API v2
     const initRes = await axios.post<TikTokInitResponse>(
       `${TIKTOK_API_BASE}/post/publish/video/init/`,
       {
@@ -69,14 +78,18 @@ export class TikTokAdapter extends BaseAdapter {
       }
     );
 
-    if (initRes.data.error?.code !== 'ok') {
-      throw new Error(`TikTok init error: ${initRes.data.error.message}`);
+    if (initRes.data.error?.code !== 'ok' && initRes.data.error?.message) {
+      throw new Error(`TikTok API error: ${initRes.data.error.message}`);
+    }
+
+    if (!initRes.data.data?.upload_url) {
+      throw new Error('No se recibió upload_url de la API de TikTok.');
     }
 
     const { publish_id, upload_url } = initRes.data.data;
 
-    // Subir el archivo binario
-    onProgress?.(10);
+    // Subir el archivo binario (compatible con Web y React Native)
+    onProgress?.(15);
 
     const fileBlob = await fetch(media.uri).then((r) => r.blob());
 
@@ -88,7 +101,7 @@ export class TikTokAdapter extends BaseAdapter {
       },
       onUploadProgress: (e) => {
         if (e.total) {
-          const pct = Math.round((e.loaded / e.total) * 80) + 10;
+          const pct = Math.round((e.loaded / e.total) * 75) + 15;
           onProgress?.(pct);
         }
       },

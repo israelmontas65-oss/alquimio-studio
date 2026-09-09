@@ -25,7 +25,8 @@ export interface IPublishAdapter {
   upload(
     media: MediaFile,
     token: string,
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
+    options?: { caption?: string; title?: string }
   ): Promise<string>;
 
   /**
@@ -46,6 +47,13 @@ export interface IPublishAdapter {
     postId: string,
     token: string
   ): Promise<Pick<PlatformPublishResult, 'status' | 'postUrl' | 'errorMessage'>>;
+
+  pollStatus?(
+    postId: string,
+    token: string,
+    intervalMs?: number,
+    maxAttempts?: number
+  ): Promise<Pick<PlatformPublishResult, 'status' | 'postUrl' | 'errorMessage'>>;
 }
 
 /**
@@ -55,7 +63,8 @@ export abstract class BaseAdapter implements IPublishAdapter {
   abstract upload(
     media: MediaFile,
     token: string,
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
+    options?: { caption?: string; title?: string }
   ): Promise<string>;
 
   abstract publish(
@@ -73,14 +82,14 @@ export abstract class BaseAdapter implements IPublishAdapter {
    * Pausa la ejecución el número de milisegundos indicado.
    * Útil para polling de APIs asíncronas.
    */
-  protected sleep(ms: number): Promise<void> {
+  public sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
    * Polling genérico: reintenta getStatus hasta que el estado sea terminal.
    */
-  protected async pollStatus(
+  public async pollStatus(
     postId: string,
     token: string,
     intervalMs = 3000,

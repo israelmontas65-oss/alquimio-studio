@@ -37,6 +37,7 @@ import { usePublish } from '../hooks/usePublish';
 import { PublishModal } from '../components/publish/PublishModal';
 import { UploadMenuModal } from '../components/media/UploadMenuModal';
 import { ConnectAccountModal } from '../components/auth/ConnectAccountModal';
+import { getToken } from '../auth/tokenManager';
 import {
   TikTokSvg,
   InstagramSvg,
@@ -555,7 +556,7 @@ const z3 = StyleSheet.create({
 // ZONA 4: CONSOLA "PLATAFORMAS SINCRONIZADAS" (~33%, 5 filas x 58px = 290px)
 // ─────────────────────────────────────────────
 const PLATFORMS = [
-  { id: 'tiktok', label: 'TikTok', sub: 'Francia', color: '#00F2FE', SvgIcon: TikTokSvg },
+  { id: 'tiktok', label: 'TikTok', sub: 'Toca para conectar', color: '#00F2FE', SvgIcon: TikTokSvg },
   { id: 'instagram', label: 'Reels de Instagram', sub: '@alquimio', color: '#E1306C', SvgIcon: InstagramSvg },
   { id: 'youtube', label: 'Cortometrajes de YouTube', sub: '@alquimio', color: '#FF0000', SvgIcon: YouTubeSvg },
   { id: 'whatsapp', label: 'WhatsApp', sub: '@alquimio', color: '#25D366', SvgIcon: WhatsAppSvg },
@@ -567,7 +568,7 @@ function Zone4Platforms({
 }: {
   onSelectPlatform: (id: PlatformId) => void;
 }) {
-  const { activePlatforms, togglePlatform, platformHandles } = useAppStore();
+  const { activePlatforms, togglePlatform, platformHandles, linkedAccounts } = useAppStore();
 
   return (
     <View style={z4.container}>
@@ -576,7 +577,8 @@ function Zone4Platforms({
       <View style={z4.list}>
         {PLATFORMS.map((p) => {
           const isActive = activePlatforms.has(p.id as PlatformId);
-          const customSub = platformHandles[p.id as PlatformId] || p.sub;
+          const isLinked = linkedAccounts.has(p.id as PlatformId);
+          const customSub = platformHandles[p.id as PlatformId] || (isLinked ? p.sub : 'Toca para conectar');
 
           return (
             <View key={p.id} style={z4.row}>
@@ -770,7 +772,7 @@ const z5 = StyleSheet.create({
 // PANTALLA PRINCIPAL (RAÍZ)
 // ─────────────────────────────────────────────
 export default function HomeScreen() {
-  const { selectedMedia } = useAppStore();
+  const { selectedMedia, linkAccount } = useAppStore();
   const { handlePublish } = usePublish();
   const scrollRef = useRef<ScrollView>(null);
   const [showUpload, setShowUpload] = useState(false);
@@ -783,6 +785,17 @@ export default function HomeScreen() {
 
   // DETECCIÓN AUTOMÁTICA DE PWA STANDALONE INSTALADA
   const [isStandalone, setIsStandalone] = useState(false);
+
+  // Sincronizar cuenta de TikTok si ya hay token guardado
+  useEffect(() => {
+    async function syncTikTok() {
+      const tk = await getToken('tiktok');
+      if (tk?.accessToken) {
+        linkAccount('tiktok', tk.displayName || '@tiktok_user');
+      }
+    }
+    syncTikTok();
+  }, [linkAccount]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
