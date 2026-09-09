@@ -1,6 +1,6 @@
 // ============================================================
 // functions/api/tiktok/revoke.ts
-// Cloudflare Pages Function: Proxy para revocación de tokens TikTok v2
+// Cloudflare Pages Function: Revocación oficial de token TikTok v2 en backend
 // ============================================================
 
 interface Env {
@@ -8,12 +8,16 @@ interface Env {
   EXPO_PUBLIC_TIKTOK_CLIENT_SECRET?: string;
   TIKTOK_CLIENT_KEY?: string;
   TIKTOK_CLIENT_SECRET?: string;
+  TIKTOK_KV?: {
+    delete: (key: string) => Promise<void>;
+  };
 }
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Alquimia-Session',
+  'Access-Control-Allow-Credentials': 'true',
 };
 
 export async function onRequestOptions(): Promise<Response> {
@@ -27,51 +31,55 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   try {
     const body = (await context.request.json()) as {
       token?: string;
-      client_key?: string;
-      client_secret?: string;
+      session_id?: string;
     };
-
-    if (!body.token) {
-      return new Response(JSON.stringify({ error: { message: 'Falta token a revocar.' } }), {
-        status: 400,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      });
-    }
 
     const clientKey =
       context.env.TIKTOK_CLIENT_KEY ||
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_KEY ||
-      body.client_key ||
       '';
 
     const clientSecret =
       context.env.TIKTOK_CLIENT_SECRET ||
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_SECRET ||
-      body.client_secret ||
       '';
 
-    const params = new URLSearchParams();
-    params.append('client_key', clientKey);
-    if (clientSecret) {
-      params.append('client_secret', clientSecret);
+    if (body.token && clientKey) {
+      const params = new URLSearchParams();
+      params.append('client_key', clientKey);
+      if (clientSecret) {
+        params.append('client_secret', clientSecret);
+      }
+      params.append('token', body.token);
+
+      await fetch('https://open.tiktokapis.com/v2/oauth/revoke/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      }).catch(() => {});
     }
-    params.append('token', body.token);
 
-    const tiktokRes = await fetch('https://open.tiktokapis.com/v2/oauth/revoke/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString(),
-    });
+    // Borrar de KV si existe
+    if (context.env.TIKTOK_KV && body.session_id) {
+      try {
+        await context.env.TIKTOK_KV.delete(body.session_id);
+      } catch {
+        // Silencioso
+      }
+    }
 
-    const data = await tiktokRes.text();
+    // Borrar cookie en el navegador
+    const clearCookieHeader =
+      'alquimia_tiktok_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
 
-    return new Response(data, {
-      status: tiktokRes.status,
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
       headers: {
         ...CORS_HEADERS,
         'Content-Type': 'application/json',
+        'Set-Cookie': clearCookieHeader,
       },
     });
   } catch (err: unknown) {

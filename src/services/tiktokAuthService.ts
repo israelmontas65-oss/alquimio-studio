@@ -1,7 +1,7 @@
 // ============================================================
 // src/services/tiktokAuthService.ts
 // Servicio de autenticación oficial OAuth 2.0 PKCE para TikTok API v2
-// Compatible con Web (PWA / popup / redirect) y móvil nativo (Expo Linking)
+// Flujo impulsado por Backend (Cloudflare Pages) con cookies de sesión y prompt=login
 // ============================================================
 
 import { Platform, Linking } from 'react-native';
@@ -20,6 +20,7 @@ import { useAppStore } from '../store/useAppStore';
 
 const PKCE_STORAGE_KEY = 'alquimio_tiktok_pkce_verifier';
 const STATE_STORAGE_KEY = 'alquimio_tiktok_oauth_state';
+const SESSION_ID_KEY = 'alquimio_tiktok_backend_session_id';
 
 export interface TikTokUserProfile {
   open_id: string;
@@ -39,7 +40,7 @@ export interface TikTokTokenResponse {
   token_type?: string;
 }
 
-// ── 1. Almacenamiento seguro temporal para PKCE y State ───────
+// ── 1. Almacenamiento temporal para PKCE y State ─────────────
 async function saveOAuthState(state: string, verifier: string): Promise<void> {
   if (Platform.OS === 'web') {
     if (typeof sessionStorage !== 'undefined') {
@@ -93,37 +94,71 @@ async function clearStoredOAuthState(): Promise<void> {
 }
 
 // ── 2. Iniciar flujo oficial OAuth 2.0 PKCE ───────────────────
-export async function initiateTikTokOAuth(): Promise<void> {
-  const { clientKey } = await getTikTokCredentials();
-  if (!clientKey) {
-    throw new Error(
-      'Falta configurar el Client Key de TikTok. Por favor configúralo en las variables de entorno o en la configuración de la app.'
-    );
-  }
-
+export async function initiateTikTokOAuth(options?: { forceLogin?: boolean }): Promise<void> {
   const state = generateRandomString(32);
   const codeVerifier = generateRandomString(64);
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   const redirectUri = getTikTokRedirectUri();
+  const forceLogin = options?.forceLogin === true;
 
-  // Guardar estado y verifier para validar en el callback
+  // Guardar estado y verifier para validar en el retorno del callback
   await saveOAuthState(state, codeVerifier);
 
-  const params = new URLSearchParams({
-    client_key: clientKey,
-    scope: TIKTOK_SCOPES,
-    response_type: 'code',
-    redirect_uri: redirectUri,
-    state,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-  });
+  let authorizationUrl = '';
 
-  const authorizationUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`;
+  // Intentar obtener la URL generada por el backend con las credenciales seguras
+  const isWebEnvironment = Platform.OS === 'web' && typeof window !== 'undefined';
+  if (isWebEnvironment) {
+    try {
+      const authUrlRes = await axios.get<{
+        data?: { authorizationUrl: string; clientKey: string };
+        error?: { message: string };
+      }>('/api/tiktok/auth-url', {
+        params: {
+          state,
+          code_challenge: codeChallenge,
+          redirect_uri: redirectUri,
+          force_login: forceLogin ? 'true' : 'false',
+        },
+      });
 
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    // Si estamos en un navegador en modo standalone (PWA instalada) o móvil web,
-    // usamos redirección directa para evitar bloqueos de popup.
+      if (authUrlRes.data?.data?.authorizationUrl) {
+        authorizationUrl = authUrlRes.data.data.authorizationUrl;
+      }
+    } catch {
+      // Fallback a construcción local si el proxy no responde (desarrollo local sin wrangler)
+    }
+  }
+
+  // Fallback si no vino de la función del backend
+  if (!authorizationUrl) {
+    const { clientKey } = await getTikTokCredentials();
+    if (!clientKey) {
+      throw new Error(
+        'Falta configurar el Client Key de TikTok. Por favor asegúrate de configurar TIKTOK_CLIENT_KEY en Cloudflare Pages.'
+      );
+    }
+
+    const params = new URLSearchParams({
+      client_key: clientKey,
+      scope: TIKTOK_SCOPES,
+      response_type: 'code',
+      redirect_uri: redirectUri,
+      state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+    });
+
+    if (forceLogin) {
+      params.append('prompt', 'login');
+      params.append('force_web_auth', '1');
+    }
+
+    authorizationUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`;
+  }
+
+  // Lanzar en el navegador del sistema con cookies de sesión activas
+  if (isWebEnvironment) {
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true;
@@ -133,9 +168,8 @@ export async function initiateTikTokOAuth(): Promise<void> {
       return;
     }
 
-    // En navegador web de escritorio, intentamos abrir popup centrado
-    const width = 500;
-    const height = 720;
+    const width = 520;
+    const height = 750;
     const left = Math.max(0, (window.innerWidth - width) / 2 + window.screenX);
     const top = Math.max(0, (window.innerHeight - height) / 2 + window.screenY);
 
@@ -146,11 +180,10 @@ export async function initiateTikTokOAuth(): Promise<void> {
     );
 
     if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-      // Si el navegador bloqueó el popup, fallback a redirección directa
       window.location.href = authorizationUrl;
     }
   } else {
-    // Entorno móvil nativo: abrir URL mediante Linking
+    // Móvil nativo: Abre el navegador oficial del sistema (Safari / Chrome con cookies del usuario)
     const canOpen = await Linking.canOpenURL(authorizationUrl);
     if (canOpen) {
       await Linking.openURL(authorizationUrl);
@@ -160,285 +193,213 @@ export async function initiateTikTokOAuth(): Promise<void> {
   }
 }
 
-// ── 3. Intercambiar código por tokens ─────────────────────────
+// ── 3. Intercambiar código por tokens (Server-Side) ───────────
 export async function exchangeCodeForToken(
   code: string,
   codeVerifier: string
-): Promise<TikTokTokenResponse> {
-  const { clientKey, clientSecret } = await getTikTokCredentials();
+): Promise<{
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  open_id: string;
+  handle: string;
+  sessionId?: string;
+  user: TikTokUserProfile;
+}> {
   const redirectUri = getTikTokRedirectUri();
+  const isWebEnvironment = Platform.OS === 'web' && typeof window !== 'undefined';
 
-  // Intentar primero a través de Cloudflare Pages Function Proxy (evita CORS y protege secret)
-  const isCloudflarePages =
-    Platform.OS === 'web' &&
-    typeof window !== 'undefined' &&
-    (window.location.hostname.includes('pages.dev') || window.location.hostname.includes('localhost'));
-
-  if (isCloudflarePages) {
+  // Flujo principal: Intercambio a través del backend de Cloudflare Pages
+  if (isWebEnvironment) {
     try {
-      const proxyRes = await axios.post<{ data?: TikTokTokenResponse; error?: { message: string } }>(
-        '/api/tiktok/token',
-        {
-          code,
-          code_verifier: codeVerifier,
-          redirect_uri: redirectUri,
-          client_key: clientKey,
-          client_secret: clientSecret,
-        }
-      );
+      const proxyRes = await axios.post<{
+        data?: {
+          access_token: string;
+          refresh_token: string;
+          expires_at: number;
+          open_id: string;
+          handle: string;
+          sessionId: string;
+          user: TikTokUserProfile;
+        };
+        error?: { message: string };
+      }>('/api/tiktok/token', {
+        code,
+        code_verifier: codeVerifier,
+        redirect_uri: redirectUri,
+      });
 
       if (proxyRes.data?.data?.access_token) {
-        return proxyRes.data.data;
+        const d = proxyRes.data.data;
+        return {
+          access_token: d.access_token,
+          refresh_token: d.refresh_token,
+          expires_in: Math.max(0, Math.round((d.expires_at - Date.now()) / 1000)) || 86400,
+          open_id: d.open_id,
+          handle: d.handle,
+          sessionId: d.sessionId,
+          user: d.user,
+        };
+      } else if (proxyRes.data?.error?.message) {
+        throw new Error(proxyRes.data.error.message);
       }
-    } catch {
-      // Fallback a petición directa si la función no está disponible localmente
+    } catch (err: unknown) {
+      const msg =
+        axios.isAxiosError(err) && err.response?.data?.error?.message
+          ? err.response.data.error.message
+          : err instanceof Error
+          ? err.message
+          : 'Error de comunicación con el backend.';
+      throw new Error(msg);
     }
   }
 
-  // Petición directa a open.tiktokapis.com
-  const params = new URLSearchParams();
-  params.append('client_key', clientKey);
-  if (clientSecret) {
-    params.append('client_secret', clientSecret);
-  }
-  params.append('code', code);
-  params.append('grant_type', 'authorization_code');
-  params.append('redirect_uri', redirectUri);
-  params.append('code_verifier', codeVerifier);
-
-  const res = await axios.post(`${TIKTOK_API_BASE}/oauth/token/`, params.toString(), {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Cache-Control': 'no-cache',
-    },
-  });
-
-  const payload = res.data as {
-    data?: TikTokTokenResponse;
-    access_token?: string;
-    refresh_token?: string;
-    expires_in?: number;
-    open_id?: string;
-    error?: { code: string; message: string };
-    error_description?: string;
-  };
-
-  if (payload.data?.access_token) {
-    return payload.data;
-  }
-
-  if (payload.access_token) {
-    return {
-      access_token: payload.access_token,
-      refresh_token: payload.refresh_token || '',
-      expires_in: payload.expires_in || 86400,
-      open_id: payload.open_id || '',
-    };
-  }
-
-  const errMsg = payload.error?.message || payload.error_description || 'Error al obtener token de TikTok.';
-  throw new Error(errMsg);
+  throw new Error('El intercambio de credenciales requiere conexión al backend de Alquimia.');
 }
 
-// ── 4. Consultar perfil real del usuario ─────────────────────
-export async function fetchTikTokUserProfile(accessToken: string): Promise<TikTokUserProfile> {
-  const isCloudflarePages =
-    Platform.OS === 'web' &&
-    typeof window !== 'undefined' &&
-    (window.location.hostname.includes('pages.dev') || window.location.hostname.includes('localhost'));
-
-  if (isCloudflarePages) {
-    try {
-      const proxyRes = await axios.get<{ data?: { user: TikTokUserProfile } }>('/api/tiktok/user', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (proxyRes.data?.data?.user) {
-        return proxyRes.data.data.user;
-      }
-    } catch {
-      // Fallback a petición directa
-    }
-  }
-
-  const res = await axios.get(`${TIKTOK_API_BASE}/user/info/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-    params: {
-      fields: 'open_id,union_id,avatar_url,display_name,username',
-    },
-  });
-
-  const data = res.data as {
-    data?: { user?: TikTokUserProfile };
-    error?: { code: string; message: string };
-  };
-
-  if (data.data?.user) {
-    return data.data.user;
-  }
-
-  throw new Error(data.error?.message || 'No se pudo obtener el perfil de TikTok.');
-}
-
-// ── 5. Manejar Callback OAuth completado ──────────────────────
+// ── 4. Manejar Callback OAuth completado ──────────────────────
 export async function handleAuthCallback(
   code: string,
   state: string
 ): Promise<{ success: boolean; handle: string; user: TikTokUserProfile }> {
   const stored = await getStoredOAuthState();
 
-  // Validar anti-CSRF state si estaba guardado
   if (stored.state && stored.state !== state) {
-    throw new Error('Error de validación de seguridad (CSRF state mismatch).');
+    throw new Error('Error de seguridad (CSRF state mismatch).');
   }
 
   const verifier = stored.verifier || '';
   const tokenData = await exchangeCodeForToken(code, verifier);
 
-  // Obtener perfil del usuario
-  let user: TikTokUserProfile;
-  try {
-    user = await fetchTikTokUserProfile(tokenData.access_token);
-  } catch {
-    // Si falla el perfil por alcance o sandbox, usamos fallback con open_id
-    user = {
-      open_id: tokenData.open_id,
-      display_name: 'Creador TikTok',
-      username: 'tiktok_user',
-    };
-  }
+  const handle = tokenData.handle.startsWith('@') ? tokenData.handle : `@${tokenData.handle}`;
 
-  const rawHandle = user.username || user.display_name || user.open_id || 'tiktok_user';
-  const handle = rawHandle.startsWith('@') ? rawHandle : `@${rawHandle}`;
-
-  // Guardar token seguro en tokenManager
+  // Guardar token en el gestor local para operaciones de publicación
   const expiresAt = Date.now() + (tokenData.expires_in || 86400) * 1000;
   await saveToken('tiktok', {
     accessToken: tokenData.access_token,
     refreshToken: tokenData.refresh_token,
     expiresAt,
-    userId: user.open_id,
+    userId: tokenData.open_id,
     displayName: handle,
   });
+
+  if (tokenData.sessionId) {
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      localStorage.setItem(SESSION_ID_KEY, tokenData.sessionId);
+    }
+  }
 
   // Actualizar store global
   useAppStore.getState().linkAccount('tiktok', handle);
 
-  // Limpiar credenciales temporales de PKCE
+  // Limpiar temporales de PKCE
   await clearStoredOAuthState();
 
-  return { success: true, handle, user };
+  return { success: true, handle, user: tokenData.user };
 }
 
-// ── 6. Refrescar token automáticamente ───────────────────────
-export async function refreshTikTokToken(
-  refreshTokenOverride?: string
-): Promise<string> {
-  const currentToken = await getToken('tiktok');
-  const refreshToken = refreshTokenOverride || currentToken?.refreshToken;
+// ── 5. Verificar sesión activa con el Backend ────────────────
+export async function checkBackendSession(): Promise<boolean> {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
 
-  if (!refreshToken) {
-    throw new Error('No hay refresh token disponible para TikTok. Es necesario iniciar sesión nuevamente.');
+  try {
+    const sessionId = typeof localStorage !== 'undefined' ? localStorage.getItem(SESSION_ID_KEY) : null;
+    const res = await axios.get<{
+      data?: {
+        isConnected: boolean;
+        open_id?: string;
+        user?: TikTokUserProfile;
+        access_token?: string;
+        expires_at?: number;
+      };
+    }>('/api/tiktok/session', {
+      params: sessionId ? { session_id: sessionId } : {},
+      headers: sessionId ? { 'X-Alquimia-Session': sessionId } : {},
+    });
+
+    if (res.data?.data?.isConnected && res.data.data.user) {
+      const u = res.data.data.user;
+      const rawHandle = u.username || u.display_name || u.open_id || 'tiktok_user';
+      const handle = rawHandle.startsWith('@') ? rawHandle : `@${rawHandle}`;
+
+      if (res.data.data.access_token) {
+        await saveToken('tiktok', {
+          accessToken: res.data.data.access_token,
+          refreshToken: '',
+          expiresAt: res.data.data.expires_at || Date.now() + 86400_000,
+          userId: u.open_id,
+          displayName: handle,
+        });
+      }
+
+      useAppStore.getState().linkAccount('tiktok', handle);
+      return true;
+    }
+  } catch {
+    // Si la sesión no existe o expiró
   }
 
-  const { clientKey, clientSecret } = await getTikTokCredentials();
+  return false;
+}
 
-  const isCloudflarePages =
-    Platform.OS === 'web' &&
-    typeof window !== 'undefined' &&
-    (window.location.hostname.includes('pages.dev') || window.location.hostname.includes('localhost'));
+// ── 6. Refrescar token automáticamente en Backend ────────────
+export async function refreshTikTokToken(): Promise<string> {
+  const currentToken = await getToken('tiktok');
+  const refreshToken = currentToken?.refreshToken;
 
-  if (isCloudflarePages) {
+  if (!refreshToken) {
+    throw new Error('Sesión de TikTok expirada. Vuelve a conectar tu cuenta.');
+  }
+
+  const isWebEnvironment = Platform.OS === 'web' && typeof window !== 'undefined';
+  if (isWebEnvironment) {
     try {
-      const proxyRes = await axios.post<{ data?: TikTokTokenResponse }>('/api/tiktok/token', {
+      const proxyRes = await axios.post<{
+        data?: {
+          access_token: string;
+          refresh_token: string;
+          expires_at: number;
+        };
+        error?: { message: string };
+      }>('/api/tiktok/token', {
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
-        client_key: clientKey,
-        client_secret: clientSecret,
       });
 
       if (proxyRes.data?.data?.access_token) {
         const d = proxyRes.data.data;
-        const newExpiresAt = Date.now() + (d.expires_in || 86400) * 1000;
         await saveToken('tiktok', {
           accessToken: d.access_token,
           refreshToken: d.refresh_token || refreshToken,
-          expiresAt: newExpiresAt,
+          expiresAt: d.expires_at || Date.now() + 86400_000,
           userId: currentToken?.userId,
           displayName: currentToken?.displayName,
         });
         return d.access_token;
       }
     } catch {
-      // Fallback a petición directa
+      // Fallback
     }
   }
 
-  const params = new URLSearchParams();
-  params.append('client_key', clientKey);
-  if (clientSecret) {
-    params.append('client_secret', clientSecret);
-  }
-  params.append('grant_type', 'refresh_token');
-  params.append('refresh_token', refreshToken);
-
-  const res = await axios.post(`${TIKTOK_API_BASE}/oauth/token/`, params.toString(), {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-  });
-
-  const payload = res.data as {
-    data?: TikTokTokenResponse;
-    access_token?: string;
-    refresh_token?: string;
-    expires_in?: number;
-    error?: { message: string };
-  };
-
-  const newAccessToken = payload.data?.access_token || payload.access_token;
-  const newRefreshToken = payload.data?.refresh_token || payload.refresh_token || refreshToken;
-  const expiresIn = payload.data?.expires_in || payload.expires_in || 86400;
-
-  if (!newAccessToken) {
-    throw new Error(payload.error?.message || 'Fallo al renovar el token de TikTok.');
-  }
-
-  const newExpiresAt = Date.now() + expiresIn * 1000;
-  await saveToken('tiktok', {
-    accessToken: newAccessToken,
-    refreshToken: newRefreshToken,
-    expiresAt: newExpiresAt,
-    userId: currentToken?.userId,
-    displayName: currentToken?.displayName,
-  });
-
-  return newAccessToken;
+  throw new Error('Fallo al refrescar token de TikTok.');
 }
 
-// ── 7. Obtener token válido (con auto-refresh preventivo) ─────
+// ── 7. Obtener token válido para publicación ─────────────────
 export async function getValidTikTokToken(): Promise<string | null> {
   const token = await getToken('tiktok');
   if (!token?.accessToken) {
     return null;
   }
 
-  // Si le quedan más de 5 minutos (300,000 ms), es válido
+  // Si le quedan más de 5 minutos, es válido
   if (token.expiresAt && Date.now() + 300_000 < token.expiresAt) {
     return token.accessToken;
   }
 
-  // Si no tiene fecha de expiración, asumimos válido pero si tiene refresh token intentamos asegurar
-  if (!token.expiresAt && !token.refreshToken) {
-    return token.accessToken;
-  }
-
-  // Si está por vencer o vencido, ejecutamos refresco automático
   try {
     return await refreshTikTokToken();
   } catch {
-    // Si el refresco falla pero el token no ha pasado su fecha estricta, devolvemos el actual
     if (token.expiresAt && Date.now() < token.expiresAt) {
       return token.accessToken;
     }
@@ -446,40 +407,30 @@ export async function getValidTikTokToken(): Promise<string | null> {
   }
 }
 
-// ── 8. Desconectar y revocar token en TikTok ──────────────────
+// ── 8. Desconectar y revocar token en TikTok (Backend) ────────
 export async function disconnectTikTok(): Promise<void> {
   const token = await getToken('tiktok');
-  const { clientKey, clientSecret } = await getTikTokCredentials();
+  const sessionId =
+    Platform.OS === 'web' && typeof localStorage !== 'undefined'
+      ? localStorage.getItem(SESSION_ID_KEY)
+      : null;
 
-  if (token?.accessToken) {
-    try {
-      const isCloudflarePages =
-        Platform.OS === 'web' &&
-        typeof window !== 'undefined' &&
-        (window.location.hostname.includes('pages.dev') || window.location.hostname.includes('localhost'));
-
-      if (isCloudflarePages) {
-        await axios.post('/api/tiktok/revoke', {
-          token: token.accessToken,
-          client_key: clientKey,
-          client_secret: clientSecret,
-        }).catch(() => {});
-      } else {
-        const params = new URLSearchParams();
-        params.append('client_key', clientKey);
-        if (clientSecret) params.append('client_secret', clientSecret);
-        params.append('token', token.accessToken);
-
-        await axios.post(`${TIKTOK_API_BASE}/oauth/revoke/`, params.toString(), {
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        }).catch(() => {});
-      }
-    } catch {
-      // Continuamos con la limpieza local incluso si la revocación remota falla
+  try {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      await axios.post('/api/tiktok/revoke', {
+        token: token?.accessToken,
+        session_id: sessionId,
+      }).catch(() => {});
     }
+  } catch {
+    // Silencioso
   }
 
-  // Eliminar token almacenado
+  if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+    localStorage.removeItem(SESSION_ID_KEY);
+  }
+
+  // Eliminar token local
   await removeToken('tiktok');
   await clearStoredOAuthState();
 

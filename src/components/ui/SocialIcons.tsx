@@ -117,3 +117,61 @@ export function CloseCircleSvg({ size = 20, color = '#FF4C4C' }: IconProps) {
     </Svg>
   );
 }
+
+// ── Checkmark Circle SVG (Éxito / Conectado) ─────────────────────
+export function CheckmarkCircleSvg({ size = 20, color = '#00FF7F' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path
+        d="M8 12.5L10.5 15L16 9.5"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// ── Alert Circle SVG (Error / Advertencia) ───────────────────────
+export function AlertCircleSvg({ size = 20, color = '#FF5B5B' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path d="M12 7V13" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="16.5" r="1" fill={color} />
+    </Svg>
+  );
+}
+
+// ── Person Outline SVG (Usuario) ────────────────────────────────
+export function PersonOutlineSvg({ size = 18, color = '#00FFD4' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="7" r="4" stroke={color} strokeWidth="2" />
+      <Path
+        d="M5 21v-2a7 7 0 0 1 14 0v2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+// ── Refresh / Switch SVG (Cambiar cuenta) ────────────────────────
+export function RefreshSvg({ size = 16, color = '#00F2FE' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+

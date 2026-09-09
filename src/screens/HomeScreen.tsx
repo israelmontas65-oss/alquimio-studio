@@ -38,6 +38,7 @@ import { PublishModal } from '../components/publish/PublishModal';
 import { UploadMenuModal } from '../components/media/UploadMenuModal';
 import { ConnectAccountModal } from '../components/auth/ConnectAccountModal';
 import { getToken } from '../auth/tokenManager';
+import { checkBackendSession } from '../services/tiktokAuthService';
 import {
   TikTokSvg,
   InstagramSvg,
@@ -600,7 +601,18 @@ function Zone4Platforms({
 
                 {/* Textos Claros: Nombre (15px bold blanco) y Usuario (@alquimio, 13px #8EA3BF) */}
                 <View style={z4.textWrap}>
-                  <Text style={z4.label}>{p.label}</Text>
+                  <View style={z4.labelRow}>
+                    <Text style={z4.label}>{p.label}</Text>
+                    {isLinked ? (
+                      <View style={z4.connectedBadge}>
+                        <Text style={z4.connectedBadgeText}>Conectada</Text>
+                      </View>
+                    ) : (
+                      <View style={z4.disconnectedBadge}>
+                        <Text style={z4.disconnectedBadgeText}>No vinculada</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={z4.sub}>{customSub}</Text>
                 </View>
               </TouchableOpacity>
@@ -667,6 +679,38 @@ const z4 = StyleSheet.create({
   },
   textWrap: {
     flex: 1,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  connectedBadge: {
+    backgroundColor: 'rgba(0, 255, 127, 0.12)',
+    borderWidth: 0.8,
+    borderColor: 'rgba(0, 255, 127, 0.45)',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  connectedBadgeText: {
+    color: '#00FF7F',
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  disconnectedBadge: {
+    backgroundColor: 'rgba(255, 100, 100, 0.08)',
+    borderWidth: 0.8,
+    borderColor: 'rgba(255, 100, 100, 0.25)',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  disconnectedBadgeText: {
+    color: '#FF8080',
+    fontSize: 9.5,
+    fontWeight: '600',
   },
   label: {
     color: C.white,
@@ -786,12 +830,15 @@ export default function HomeScreen() {
   // DETECCIÓN AUTOMÁTICA DE PWA STANDALONE INSTALADA
   const [isStandalone, setIsStandalone] = useState(false);
 
-  // Sincronizar cuenta de TikTok si ya hay token guardado
+  // Sincronizar cuenta de TikTok con sesión de backend y token local
   useEffect(() => {
     async function syncTikTok() {
-      const tk = await getToken('tiktok');
-      if (tk?.accessToken) {
-        linkAccount('tiktok', tk.displayName || '@tiktok_user');
+      const connectedOnBackend = await checkBackendSession();
+      if (!connectedOnBackend) {
+        const tk = await getToken('tiktok');
+        if (tk?.accessToken) {
+          linkAccount('tiktok', tk.displayName || '@tiktok_user');
+        }
       }
     }
     syncTikTok();

@@ -9,9 +9,7 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
-  Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '../../store/useAppStore';
@@ -23,15 +21,15 @@ import {
   WhatsAppSvg,
   FacebookSvg,
   CloseCircleSvg,
+  CheckmarkCircleSvg,
+  AlertCircleSvg,
+  PersonOutlineSvg,
+  RefreshSvg,
 } from '../ui/SocialIcons';
 import {
   initiateTikTokOAuth,
   disconnectTikTok,
 } from '../../services/tiktokAuthService';
-import {
-  getTikTokCredentials,
-  saveTikTokCredentials,
-} from '../../config/tiktokConfig';
 
 // ── Paleta ─────────────────────────────────────────────────────
 const C = {
@@ -46,6 +44,8 @@ const C = {
   textMuted: 'rgba(255,255,255,0.45)',
   green: '#00FF7F',
   greenBg: 'rgba(0,255,127,0.1)',
+  red: '#FF5B5B',
+  redBg: 'rgba(255,91,91,0.1)',
 };
 
 // ── Config por plataforma ──────────────────────────────────────
@@ -103,36 +103,25 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
   const { linkedAccounts, linkAccount, unlinkAccount, platformHandles } = useAppStore();
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingMode, setLoadingMode] = useState<'normal' | 'switch'>('normal');
   const [step, setStep] = useState<'idle' | 'connecting' | 'success'>('idle');
-
-  // Configuración de credenciales de desarrollador TikTok
-  const [showConfig, setShowConfig] = useState(false);
-  const [clientKeyInput, setClientKeyInput] = useState('');
-  const [clientSecretInput, setClientSecretInput] = useState('');
-  const [credentialsSaved, setCredentialsSaved] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (platformId) {
       setUsername(platformHandles[platformId] || '');
       setStep('idle');
-      setShowConfig(false);
-      setCredentialsSaved(false);
-
-      if (platformId === 'tiktok') {
-        getTikTokCredentials().then((creds) => {
-          setClientKeyInput(creds.clientKey);
-          setClientSecretInput(creds.clientSecret);
-        });
-      }
+      setErrorMessage(null);
     }
   }, [platformId, platformHandles]);
 
-  // Escuchar mensaje del popup OAuth en Web
+  // Escuchar mensaje de popup OAuth en Web
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'TIKTOK_AUTH_SUCCESS') {
+        setErrorMessage(null);
         setStep('success');
         setLoading(false);
         setTimeout(() => {
@@ -142,7 +131,8 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
       } else if (event.data?.type === 'TIKTOK_AUTH_ERROR') {
         setLoading(false);
         setStep('idle');
-        Alert.alert('Error de conexión', event.data?.error || 'No se completó la autorización de TikTok.');
+        const desc = event.data?.description || event.data?.error || 'No se completó la autorización de TikTok.';
+        setErrorMessage(desc);
       }
     };
 
@@ -157,24 +147,21 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
   const platformName = meta.name;
 
   // Conexión para TikTok (OAuth 2.0 Oficial) o plataformas estándar
-  const handleConnect = async () => {
+  const handleConnect = async (options?: { forceLogin?: boolean }) => {
+    setErrorMessage(null);
+
     if (platformId === 'tiktok') {
       try {
         setLoading(true);
+        setLoadingMode(options?.forceLogin ? 'switch' : 'normal');
         setStep('connecting');
 
-        // Guardar credenciales si el usuario las editó en el formulario de configuración
-        if (clientKeyInput.trim()) {
-          await saveTikTokCredentials(clientKeyInput.trim(), clientSecretInput.trim());
-        }
-
-        await initiateTikTokOAuth();
-        // En web redirigida o popup, la respuesta se gestiona en callback
+        await initiateTikTokOAuth({ forceLogin: options?.forceLogin });
       } catch (err: unknown) {
         setLoading(false);
         setStep('idle');
         const msg = err instanceof Error ? err.message : 'Error al iniciar conexión con TikTok.';
-        Alert.alert('TikTok OAuth', msg);
+        setErrorMessage(msg);
       }
       return;
     }
@@ -218,16 +205,11 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
     setUsername('');
   };
 
-  const handleSaveCredentials = async () => {
-    await saveTikTokCredentials(clientKeyInput.trim(), clientSecretInput.trim());
-    setCredentialsSaved(true);
-    setTimeout(() => setCredentialsSaved(false), 2000);
-  };
-
   const handleClose = () => {
     if (loading) return;
     onClose();
     setStep('idle');
+    setErrorMessage(null);
   };
 
   return (
@@ -262,22 +244,20 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
               {isLinked && step !== 'success' ? (
                 <View style={s.connectedState}>
                   <View style={s.connectedBadge}>
-                    <Ionicons name="checkmark-circle" size={20} color={C.green} />
-                    <Text style={s.connectedText}>
-                      {platformHandles[platformId] || 'Conectada exitosamente'}
+                    <CheckmarkCircleSvg size={18} color={C.green} />
+                    <Text style={s.connectedBadgeText}>Conectada</Text>
+                    <Text style={s.connectedUserText}>
+                      {platformHandles[platformId] || ''}
                     </Text>
                   </View>
                   <Text style={s.connectedSub}>
-                    Tu cuenta oficial de {platformName} está vinculada y lista para publicar videos.
+                    Tu cuenta oficial de {platformName} está vinculada y lista para publicar videos automáticamente desde Alquimia.
                   </Text>
                   <TouchableOpacity onPress={handleDisconnect} style={s.disconnectBtn} disabled={loading}>
                     {loading ? (
                       <ActivityIndicator size="small" color={C.textMuted} />
                     ) : (
-                      <>
-                        <Ionicons name="unlink-outline" size={14} color="#FF8080" />
-                        <Text style={[s.disconnectText, { color: '#FF8080' }]}>Desvincular cuenta y revocar acceso</Text>
-                      </>
+                      <Text style={s.disconnectText}>Desvincular cuenta y revocar acceso</Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -285,7 +265,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                 /* ── Estado: Éxito ── */
                 <View style={s.successState}>
                   <View style={s.successIcon}>
-                    <Ionicons name="checkmark-circle" size={48} color={C.green} />
+                    <CheckmarkCircleSvg size={48} color={C.green} />
                   </View>
                   <Text style={s.successTitle}>¡Cuenta conectada!</Text>
                   <Text style={s.successSub}>
@@ -301,12 +281,23 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                   </View>
 
                   <Text style={s.tiktokExplainer}>
-                    Inicia sesión de forma segura en los servidores oficiales de TikTok para autorizar la publicación directa de contenido.
+                    Conecta tu cuenta oficial de TikTok mediante OAuth 2.0 para publicar videos directamente. Si ya tienes sesión abierta en tu navegador, la vinculación es inmediata.
                   </Text>
 
-                  {/* Botón Oficial "Conectar con TikTok" */}
+                  {/* Mensaje de Error si la autorización falló o fue cancelada */}
+                  {errorMessage && (
+                    <View style={s.errorBox}>
+                      <AlertCircleSvg size={18} color={C.red} />
+                      <View style={s.errorTextWrap}>
+                        <Text style={s.errorTitle}>Error de autorización</Text>
+                        <Text style={s.errorBody}>{errorMessage}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Botón Principal: Conectar con TikTok */}
                   <TouchableOpacity
-                    onPress={handleConnect}
+                    onPress={() => handleConnect({ forceLogin: false })}
                     disabled={loading}
                     style={s.oauthBtn}
                     activeOpacity={0.85}
@@ -317,7 +308,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                       style={s.oauthGradient}
                     >
                       <View style={s.oauthInnerTikTok}>
-                        {loading ? (
+                        {loading && loadingMode === 'normal' ? (
                           <>
                             <ActivityIndicator size="small" color={C.white} />
                             <Text style={s.oauthTextTikTok}>Abriendo login oficial de TikTok...</Text>
@@ -332,61 +323,25 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                     </LinearGradient>
                   </TouchableOpacity>
 
-                  {/* Toggle para Configurar Credenciales de Desarrollador */}
+                  {/* Enlace/Botón Visible: Iniciar sesión con otra cuenta de TikTok (prompt=login) */}
                   <TouchableOpacity
-                    onPress={() => setShowConfig(!showConfig)}
-                    style={s.configToggle}
+                    onPress={() => handleConnect({ forceLogin: true })}
+                    disabled={loading}
+                    style={s.switchAccountBtn}
                     activeOpacity={0.7}
                   >
-                    <Ionicons
-                      name={showConfig ? 'chevron-up-outline' : 'settings-outline'}
-                      size={14}
-                      color={C.textMuted}
-                    />
-                    <Text style={s.configToggleText}>
-                      {showConfig ? 'Ocultar credenciales de API' : '⚙️ Configurar credenciales de API (Client Key)'}
+                    {loading && loadingMode === 'switch' ? (
+                      <ActivityIndicator size="small" color="#00F2FE" />
+                    ) : (
+                      <RefreshSvg size={15} color="#00F2FE" />
+                    )}
+                    <Text style={s.switchAccountText}>
+                      Iniciar sesión con otra cuenta de TikTok
                     </Text>
                   </TouchableOpacity>
 
-                  {showConfig && (
-                    <View style={s.configBox}>
-                      <Text style={s.configBoxLabel}>Client Key (de TikTok Developer Portal):</Text>
-                      <TextInput
-                        value={clientKeyInput}
-                        onChangeText={setClientKeyInput}
-                        placeholder="ej. aw1234567890..."
-                        placeholderTextColor={C.textMuted}
-                        style={s.configInput}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-
-                      <Text style={[s.configBoxLabel, { marginTop: 8 }]}>Client Secret (opcional si usas proxy):</Text>
-                      <TextInput
-                        value={clientSecretInput}
-                        onChangeText={setClientSecretInput}
-                        placeholder="Client Secret..."
-                        placeholderTextColor={C.textMuted}
-                        style={s.configInput}
-                        secureTextEntry
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-
-                      <TouchableOpacity
-                        onPress={handleSaveCredentials}
-                        style={s.saveCredsBtn}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={s.saveCredsBtnText}>
-                          {credentialsSaved ? '✓ Credenciales guardadas' : 'Guardar credenciales'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
                   <Text style={s.disclaimer}>
-                    🔒 Conexión oficial mediante TikTok Content Posting API v2. Requiere registrar tu app en developers.tiktok.com.
+                    🔒 Conexión oficial mediante TikTok Content Posting API v2. Credenciales y tokens resguardados de forma segura en el servidor de Alquimia.
                   </Text>
                 </>
               ) : (
@@ -400,7 +355,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                   <View style={s.fieldGroup}>
                     <Text style={s.fieldLabel}>{meta.hint}</Text>
                     <View style={[s.inputWrap, username.length > 0 && s.inputWrapActive]}>
-                      <Ionicons name="person-outline" size={16} color={C.neon} style={{ marginRight: 8 }} />
+                      <PersonOutlineSvg size={16} color={C.neon} />
                       <TextInput
                         value={username}
                         onChangeText={setUsername}
@@ -415,7 +370,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                   </View>
 
                   <TouchableOpacity
-                    onPress={handleConnect}
+                    onPress={() => handleConnect()}
                     disabled={loading || !username.trim()}
                     style={[s.oauthBtn, (!username.trim() || loading) && s.oauthBtnDisabled]}
                     activeOpacity={0.8}
@@ -437,7 +392,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                           </>
                         ) : (
                           <>
-                            <Ionicons name="shield-checkmark-outline" size={16} color={C.neon} />
+                            <CheckmarkCircleSvg size={16} color={C.neon} />
                             <Text style={s.oauthText}>Conectar cuenta</Text>
                           </>
                         )}
@@ -482,7 +437,6 @@ const s = StyleSheet.create({
     maxWidth: 460,
     alignSelf: 'center',
   },
-  // Tech corners (top only since bottom is screen edge)
   tlCorner: { position: 'absolute', top: 0, left: 0, width: CORNER, height: CORNER, borderTopWidth: 1.5, borderLeftWidth: 1.5, borderColor: C.neon, borderTopLeftRadius: 20 },
   trCorner: { position: 'absolute', top: 0, right: 0, width: CORNER, height: CORNER, borderTopWidth: 1.5, borderRightWidth: 1.5, borderColor: C.neon, borderTopRightRadius: 20 },
   blCorner: { position: 'absolute', bottom: 0, left: 0, width: CORNER, height: CORNER, borderBottomWidth: 1.5, borderLeftWidth: 1.5, borderColor: 'rgba(0,255,212,0.2)' },
@@ -491,7 +445,7 @@ const s = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 20,
     gap: 12,
   },
   iconWrap: {
@@ -511,7 +465,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 18,
+    marginBottom: 14,
     backgroundColor: 'rgba(255,100,100,0.08)',
     borderWidth: 0.5,
     borderColor: 'rgba(255,100,100,0.25)',
@@ -539,6 +493,7 @@ const s = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    gap: 8,
   },
   inputWrapActive: { borderColor: C.neonBorder },
   input: { flex: 1, color: C.white, fontSize: 14 },
@@ -576,7 +531,8 @@ const s = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
   },
-  connectedText: { color: C.green, fontWeight: '700', fontSize: 14 },
+  connectedBadgeText: { color: C.green, fontWeight: '800', fontSize: 13, letterSpacing: 0.5 },
+  connectedUserText: { color: C.white, fontWeight: '700', fontSize: 14, marginLeft: 4 },
   connectedSub: { color: C.textMuted, fontSize: 13, lineHeight: 18 },
   disconnectBtn: {
     flexDirection: 'row',
@@ -585,7 +541,7 @@ const s = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: 6,
   },
-  disconnectText: { color: C.textMuted, fontSize: 12, textDecorationLine: 'underline' },
+  disconnectText: { color: '#FF8080', fontSize: 12, textDecorationLine: 'underline' },
   // Success state
   successState: { alignItems: 'center', paddingVertical: 16, gap: 10 },
   successIcon: {
@@ -603,8 +559,22 @@ const s = StyleSheet.create({
     color: C.textMuted,
     fontSize: 12.5,
     lineHeight: 18,
-    marginBottom: 16,
+    marginBottom: 14,
   },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: C.redBg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,91,91,0.35)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 14,
+  },
+  errorTextWrap: { flex: 1 },
+  errorTitle: { color: C.red, fontSize: 12, fontWeight: '700', marginBottom: 2 },
+  errorBody: { color: '#FFB0B0', fontSize: 11.5, lineHeight: 16 },
   oauthInnerTikTok: {
     backgroundColor: 'rgba(8, 18, 32, 0.95)',
     borderRadius: 7,
@@ -620,54 +590,22 @@ const s = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.3,
   },
-  configToggle: {
+  switchAccountBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 14,
-    paddingVertical: 6,
-  },
-  configToggleText: {
-    color: C.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  configBox: {
-    marginTop: 10,
-    padding: 12,
+    gap: 8,
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(0, 242, 254, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(0, 242, 254, 0.25)',
   },
-  configBoxLabel: {
-    color: C.textMuted,
-    fontSize: 11,
-    marginBottom: 4,
-  },
-  configInput: {
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    color: C.white,
-    fontSize: 12,
-  },
-  saveCredsBtn: {
-    marginTop: 10,
-    backgroundColor: 'rgba(0,255,212,0.15)',
-    borderWidth: 1,
-    borderColor: C.neon,
-    borderRadius: 6,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  saveCredsBtnText: {
-    color: C.neon,
-    fontSize: 12,
+  switchAccountText: {
+    color: '#00F2FE',
+    fontSize: 12.5,
     fontWeight: '700',
   },
 });
