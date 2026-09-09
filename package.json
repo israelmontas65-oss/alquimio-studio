@@ -12,7 +12,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "eslint . --ext .ts,.tsx",
-    "deploy": "npx expo export -p web && npx netlify deploy --dir=dist --prod --site=19b0e557-593f-4210-9c5b-15cfb447d5f6 --no-build"
+    "deploy": "npx expo export -p web && npx netlify deploy --dir=dist --prod --site=19b0e557-593f-4210-9c5b-15cfb447d5f6 --no-build",
+    "deploy:cloudflare": "npx expo export -p web && npx wrangler pages deploy dist --project-name=alquimia-studio"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -51,7 +52,8 @@
     "@babel/core": "^7.24.0",
     "@types/react": "~19.2.4",
     "sharp": "^0.35.4",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "wrangler": "^4.130.0"
   },
   "private": true
 }
