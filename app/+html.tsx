@@ -1,6 +1,7 @@
 // ============================================================
 // app/+html.tsx
 // Plantilla HTML de producción web para Expo Router y PWA
+// Modo Standalone Nativo y Viewport Fijo
 // ============================================================
 
 import { ScrollViewStyleReset } from 'expo-router/html';
@@ -17,18 +18,18 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
         />
 
-        {/* Metadatos PWA y Tema */}
+        {/* Metadatos PWA y Tema Cyber Espacial */}
         <title>Alquimio Studio</title>
         <meta name="description" content="Plataforma Universal de Publicación y Distribución en Bloque" />
-        <meta name="theme-color" content="#080C14" />
-        <meta name="background-color" content="#080C14" />
+        <meta name="theme-color" content="#040711" />
+        <meta name="background-color" content="#040711" />
         
         {/* Forzar limpieza de caché en el HTML para actualizaciones en tiempo real */}
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
 
-        {/* PWA para iOS Safari */}
+        {/* PWA para iOS Safari Standalone */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Alquimio" />
@@ -36,7 +37,7 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
         <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png" />
 
-        {/* PWA para Android, Chrome, Edge, Firefox */}
+        {/* PWA para Android, Chrome, Edge, Firefox Standalone */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="application-name" content="Alquimio" />
         <link rel="manifest" href="/manifest.json" />
@@ -58,10 +59,21 @@ export default function Root({ children }: PropsWithChildren) {
                 width: 100%;
                 margin: 0;
                 padding: 0;
-                background-color: #080C14;
+                background-color: #040711;
                 overflow-x: hidden;
                 overscroll-behavior: none;
                 -webkit-tap-highlight-color: transparent;
+              }
+              body {
+                position: fixed;
+                width: 100%;
+                height: 100%;
+              }
+              #root {
+                height: 100%;
+                width: 100%;
+                display: flex;
+                flex-direction: column;
               }
             `,
           }}
@@ -75,8 +87,6 @@ export default function Root({ children }: PropsWithChildren) {
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js').then(function(reg) {
                     console.log('Alquimio PWA: Service Worker activo.', reg.scope);
-                    
-                    // Forzar comprobación de red al iniciar
                     reg.update();
 
                     reg.onupdatefound = function() {

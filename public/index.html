@@ -3,37 +3,53 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#080C14" />
-    <meta name="background-color" content="#080C14" />
+    <meta name="theme-color" content="#040711" />
+    <meta name="background-color" content="#040711" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Alquimio" />
     <meta name="application-name" content="Alquimio" />
-    <meta name="description" content="1-Tap Broadcast — publica en todas tus redes en un solo toque." />
+    <meta name="description" content="Plataforma Universal de Publicación y Distribución en Bloque" />
 
     <!-- Forzar limpieza de caché en el HTML para actualizaciones en tiempo real -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
 
-    <title>Alquimio</title>
+    <title>Alquimio Studio</title>
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
 
     <!-- Favicon e iconos Apple -->
     <link rel="icon" type="image/png" href="/assets/images/favicon.png" />
-    <link rel="apple-touch-icon" href="/assets/images/icon.png" />
-    <link rel="apple-touch-icon" sizes="192x192" href="/assets/images/icon.png" />
-    <link rel="apple-touch-icon" sizes="512x512" href="/assets/images/icon.png" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png" />
 
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body, #root { height: 100%; width: 100%; margin: 0; padding: 0; background-color: #080C14; overflow-x: hidden; }
-      body {
+      html, body, #root {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #040711;
+        overflow-x: hidden;
         overscroll-behavior: none;
         -webkit-tap-highlight-color: transparent;
+      }
+      body {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+      }
+      #root {
+        height: 100%;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
       }
     </style>
   </head>
@@ -46,8 +62,6 @@
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').then((reg) => {
             console.log('Alquimio SW registrado:', reg.scope);
-            
-            // Comprobación forzada al iniciar
             reg.update();
 
             reg.onupdatefound = () => {
@@ -64,7 +78,6 @@
             console.warn('Error al registrar Service Worker:', err);
           });
 
-          // Cuando el nuevo Service Worker toma el control, recarga automáticamente
           let refreshing = false;
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (!refreshing) {
