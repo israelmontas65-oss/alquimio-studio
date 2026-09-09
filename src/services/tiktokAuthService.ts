@@ -1,12 +1,14 @@
 // ============================================================
 // src/services/tiktokAuthService.ts
 // Servicio de autenticación oficial OAuth 2.0 PKCE para TikTok API v2
-// Flujo impulsado por Backend (Cloudflare Pages) con cookies de sesión y prompt=login
+// Flujo impulsado por Backend con WebBrowser.openAuthSessionAsync en nativo
+// y postMessage + polling en Web/PWA, con validación Anti-CSRF
 // ============================================================
 
-import { Platform, Linking } from 'react-native';
+import { Platform } from 'react-native';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import * as WebBrowser from 'expo-web-browser';
 import {
   TIKTOK_API_BASE,
   TIKTOK_AUTH_URL,
@@ -93,44 +95,52 @@ async function clearStoredOAuthState(): Promise<void> {
   }
 }
 
+// ── Helper para extraer parámetros de URLs con cualquier esquema ─
+function parseQueryParams(url: string): Record<string, string> {
+  const queryIdx = url.indexOf('?');
+  if (queryIdx === -1) return {};
+  const query = url.slice(queryIdx + 1).split('#')[0];
+  const params: Record<string, string> = {};
+  for (const pair of query.split('&')) {
+    const [k, v] = pair.split('=');
+    if (k) params[decodeURIComponent(k)] = decodeURIComponent(v || '');
+  }
+  return params;
+}
+
 // ── 2. Iniciar flujo oficial OAuth 2.0 PKCE ───────────────────
 export async function initiateTikTokOAuth(options?: { forceLogin?: boolean }): Promise<void> {
-  const state = generateRandomString(32);
   const codeVerifier = generateRandomString(64);
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   const redirectUri = getTikTokRedirectUri();
   const forceLogin = options?.forceLogin === true;
 
-  // Guardar estado y verifier para validar en el retorno del callback
-  await saveOAuthState(state, codeVerifier);
-
   let authorizationUrl = '';
+  let serverState = '';
 
-  // Intentar obtener la URL generada por el backend con las credenciales seguras
+  // 1. Obtener URL de autorización y state firmado desde el backend
   const isWebEnvironment = Platform.OS === 'web' && typeof window !== 'undefined';
-  if (isWebEnvironment) {
-    try {
-      const authUrlRes = await axios.get<{
-        data?: { authorizationUrl: string; clientKey: string };
-        error?: { message: string };
-      }>('/api/tiktok/auth-url', {
-        params: {
-          state,
-          code_challenge: codeChallenge,
-          redirect_uri: redirectUri,
-          force_login: forceLogin ? 'true' : 'false',
-        },
-      });
+  try {
+    const authUrlRes = await axios.get<{
+      data?: { authorizationUrl: string; clientKey: string; state: string };
+      error?: { message: string };
+    }>('/api/tiktok/auth-url', {
+      params: {
+        code_challenge: codeChallenge,
+        redirect_uri: redirectUri,
+        force_login: forceLogin ? 'true' : 'false',
+      },
+    });
 
-      if (authUrlRes.data?.data?.authorizationUrl) {
-        authorizationUrl = authUrlRes.data.data.authorizationUrl;
-      }
-    } catch {
-      // Fallback a construcción local si el proxy no responde (desarrollo local sin wrangler)
+    if (authUrlRes.data?.data?.authorizationUrl) {
+      authorizationUrl = authUrlRes.data.data.authorizationUrl;
+      serverState = authUrlRes.data.data.state || '';
     }
+  } catch {
+    // Fallback en desarrollo local sin backend disponible
   }
 
-  // Fallback si no vino de la función del backend
+  // Fallback si el backend no respondió
   if (!authorizationUrl) {
     const { clientKey } = await getTikTokCredentials();
     if (!clientKey) {
@@ -139,12 +149,13 @@ export async function initiateTikTokOAuth(options?: { forceLogin?: boolean }): P
       );
     }
 
+    serverState = generateRandomString(32);
     const params = new URLSearchParams({
       client_key: clientKey,
       scope: TIKTOK_SCOPES,
       response_type: 'code',
       redirect_uri: redirectUri,
-      state,
+      state: serverState,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
     });
@@ -157,46 +168,75 @@ export async function initiateTikTokOAuth(options?: { forceLogin?: boolean }): P
     authorizationUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`;
   }
 
-  // Lanzar en el navegador del sistema con cookies de sesión activas
-  if (isWebEnvironment) {
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+  // Guardar estado y verifier para validar en el callback
+  await saveOAuthState(serverState, codeVerifier);
 
-    if (isStandalone) {
-      window.location.href = authorizationUrl;
+  // ── 2A. Móvil Nativo (iOS / Android): WebBrowser.openAuthSessionAsync ─
+  if (!isWebEnvironment) {
+    // WebBrowser.openAuthSessionAsync maneja cookies del sistema y cierra
+    // automáticamente la ventana al redirigir al deep link alquimio://
+    const authResult = await WebBrowser.openAuthSessionAsync(authorizationUrl, redirectUri);
+
+    if (authResult.type === 'success' && authResult.url) {
+      const parsed = parseQueryParams(authResult.url);
+      if (parsed.error) {
+        const errorDesc = parsed.error_description || parsed.error || 'Autorización cancelada.';
+        throw new Error(`TikTok OAuth: ${errorDesc}`);
+      }
+      if (!parsed.code) {
+        throw new Error('No se recibió código de autorización desde TikTok.');
+      }
+
+      await handleAuthCallback(parsed.code, parsed.state || serverState);
       return;
-    }
-
-    const width = 520;
-    const height = 750;
-    const left = Math.max(0, (window.innerWidth - width) / 2 + window.screenX);
-    const top = Math.max(0, (window.innerHeight - height) / 2 + window.screenY);
-
-    const popup = window.open(
-      authorizationUrl,
-      'tiktok_oauth_window',
-      `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes,scrollbars=yes`
-    );
-
-    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-      window.location.href = authorizationUrl;
-    }
-  } else {
-    // Móvil nativo: Abre el navegador oficial del sistema (Safari / Chrome con cookies del usuario)
-    const canOpen = await Linking.canOpenURL(authorizationUrl);
-    if (canOpen) {
-      await Linking.openURL(authorizationUrl);
+    } else if (authResult.type === 'cancel' || authResult.type === 'dismiss') {
+      throw new Error('Autorización cancelada por el usuario.');
     } else {
-      throw new Error('No se pudo abrir el navegador para iniciar sesión en TikTok.');
+      throw new Error('No se pudo completar la sesión de autorización en TikTok.');
     }
   }
+
+  // ── 2B. Entorno Web / PWA ────────────────────────────────────
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+
+  if (isStandalone) {
+    // En PWA instalada, redirección directa en la misma ventana
+    window.location.href = authorizationUrl;
+    return;
+  }
+
+  // En navegador de escritorio / móvil web: popup centrado
+  const width = 520;
+  const height = 750;
+  const left = Math.max(0, (window.innerWidth - width) / 2 + window.screenX);
+  const top = Math.max(0, (window.innerHeight - height) / 2 + window.screenY);
+
+  const popup = window.open(
+    authorizationUrl,
+    'tiktok_oauth_window',
+    `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes,scrollbars=yes`
+  );
+
+  if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+    window.location.href = authorizationUrl;
+    return;
+  }
+
+  // Polling de seguridad por si el usuario cierra el popup manualmente
+  const pollTimer = setInterval(() => {
+    if (popup.closed) {
+      clearInterval(pollTimer);
+    }
+  }, 1000);
 }
 
-// ── 3. Intercambiar código por tokens (Server-Side) ───────────
+// ── 3. Intercambiar código por tokens (Server-Side con CSRF) ──
 export async function exchangeCodeForToken(
   code: string,
-  codeVerifier: string
+  codeVerifier: string,
+  state: string
 ): Promise<{
   access_token: string;
   refresh_token: string;
@@ -209,7 +249,6 @@ export async function exchangeCodeForToken(
   const redirectUri = getTikTokRedirectUri();
   const isWebEnvironment = Platform.OS === 'web' && typeof window !== 'undefined';
 
-  // Flujo principal: Intercambio a través del backend de Cloudflare Pages
   if (isWebEnvironment) {
     try {
       const proxyRes = await axios.post<{
@@ -227,6 +266,7 @@ export async function exchangeCodeForToken(
         code,
         code_verifier: codeVerifier,
         redirect_uri: redirectUri,
+        state,
       });
 
       if (proxyRes.data?.data?.access_token) {
@@ -249,7 +289,7 @@ export async function exchangeCodeForToken(
           ? err.response.data.error.message
           : err instanceof Error
           ? err.message
-          : 'Error de comunicación con el backend.';
+          : 'Error de comunicación con el servidor.';
       throw new Error(msg);
     }
   }
@@ -264,12 +304,13 @@ export async function handleAuthCallback(
 ): Promise<{ success: boolean; handle: string; user: TikTokUserProfile }> {
   const stored = await getStoredOAuthState();
 
+  // Validar estado de seguridad local si existe
   if (stored.state && stored.state !== state) {
-    throw new Error('Error de seguridad (CSRF state mismatch).');
+    throw new Error('Error de validación de seguridad (CSRF state mismatch local).');
   }
 
   const verifier = stored.verifier || '';
-  const tokenData = await exchangeCodeForToken(code, verifier);
+  const tokenData = await exchangeCodeForToken(code, verifier, state);
 
   const handle = tokenData.handle.startsWith('@') ? tokenData.handle : `@${tokenData.handle}`;
 
@@ -336,7 +377,7 @@ export async function checkBackendSession(): Promise<boolean> {
       return true;
     }
   } catch {
-    // Si la sesión no existe o expiró
+    // Si la sesión expiró o no existe
   }
 
   return false;

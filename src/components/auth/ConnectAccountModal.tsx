@@ -157,6 +157,15 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
         setStep('connecting');
 
         await initiateTikTokOAuth({ forceLogin: options?.forceLogin });
+
+        if (Platform.OS !== 'web') {
+          setStep('success');
+          setLoading(false);
+          setTimeout(() => {
+            onClose();
+            setStep('idle');
+          }, 1200);
+        }
       } catch (err: unknown) {
         setLoading(false);
         setStep('idle');
