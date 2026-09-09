@@ -98,6 +98,13 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
         context.env.EXPO_PUBLIC_TIKTOK_CLIENT_SECRET ||
         '';
 
+      if (!clientKey) {
+        console.warn('[Cloudflare Pages Functions] session: Auto-refresh omitido porque falta TIKTOK_CLIENT_KEY.');
+      }
+      if (!clientSecret) {
+        console.warn('[Cloudflare Pages Functions] session: Auto-refresh omitido porque falta TIKTOK_CLIENT_SECRET.');
+      }
+
       if (clientKey && clientSecret) {
         const refreshParams = new URLSearchParams({
           client_key: clientKey,
@@ -125,6 +132,8 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
               await context.env.TIKTOK_KV.put(sessionIdParam, JSON.stringify(session));
             }
           }
+        } else {
+          console.warn('[Cloudflare Pages Functions] session: Error al refrescar token en TikTok:', refreshRes.status);
         }
       }
     }
@@ -143,6 +152,7 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Error al consultar sesión.';
+    console.error('[Cloudflare Pages Functions] session excepción:', message);
     return new Response(JSON.stringify({ error: { message } }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

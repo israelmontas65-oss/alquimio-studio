@@ -3,6 +3,7 @@
 // Cloudflare Pages Function: Intercambio y refresco de tokens TikTok v2
 // Validación estricta Anti-CSRF mediante state firmado y TTL de 10 min
 // Credenciales resguardadas 100% en el servidor (TIKTOK_CLIENT_KEY y TIKTOK_CLIENT_SECRET)
+// Diagnóstico específico para TIKTOK_CLIENT_KEY y TIKTOK_CLIENT_SECRET
 // ============================================================
 
 interface Env {
@@ -93,7 +94,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       state?: string;
     };
 
-    // Resguardo absoluto: Credenciales SOLO del entorno del servidor
+    // ── 1. Verificación explícita y diferenciada de variables de entorno ─
     const clientKey =
       context.env.TIKTOK_CLIENT_KEY ||
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_KEY ||
@@ -104,34 +105,51 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_SECRET ||
       '';
 
-    const signingSecret =
-      context.env.TIKTOK_STATE_SECRET ||
-      context.env.TIKTOK_CLIENT_SECRET ||
-      context.env.EXPO_PUBLIC_TIKTOK_CLIENT_SECRET ||
-      clientKey ||
-      'alquimia_csrf_default_salt';
-
     if (!clientKey) {
+      console.error('[Cloudflare Pages Functions] token: Falta la variable de entorno TIKTOK_CLIENT_KEY.');
       return new Response(
         JSON.stringify({
           error: {
+            code: 'MISSING_TIKTOK_CLIENT_KEY',
             message:
-              'Falta TIKTOK_CLIENT_KEY en las variables del servidor Cloudflare Pages. Por favor configúralo en Cloudflare.',
+              'Falta configurar la variable TIKTOK_CLIENT_KEY en las variables de entorno de Cloudflare Pages.',
           },
         }),
         { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
+    if (!clientSecret) {
+      console.error('[Cloudflare Pages Functions] token: Falta la variable de entorno TIKTOK_CLIENT_SECRET.');
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: 'MISSING_TIKTOK_CLIENT_SECRET',
+            message:
+              'Falta configurar la variable TIKTOK_CLIENT_SECRET en las variables de entorno de Cloudflare Pages.',
+          },
+        }),
+        { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const signingSecret =
+      context.env.TIKTOK_STATE_SECRET ||
+      clientSecret ||
+      clientKey ||
+      'alquimia_csrf_default_salt';
+
     const grantType = body.grant_type || 'authorization_code';
 
-    // ── 1. Validación de Seguridad Anti-CSRF (solo en authorization_code) ─
+    // ── 2. Validación de Seguridad Anti-CSRF (solo en authorization_code) ─
     if (grantType === 'authorization_code') {
       const state = body.state;
       if (!state) {
+        console.error('[Cloudflare Pages Functions] token: Petición rechazada, falta parámetro state.');
         return new Response(
           JSON.stringify({
             error: {
+              code: 'MISSING_CSRF_STATE',
               message:
                 'Error de validación de seguridad: Falta el parámetro state para verificar Anti-CSRF.',
             },
@@ -140,12 +158,13 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         );
       }
 
-      // Validar firma HMAC y timestamp (10 min)
       const isValidHmac = await verifySignedState(state, signingSecret);
       if (!isValidHmac) {
+        console.error('[Cloudflare Pages Functions] token: Petición rechazada, firma CSRF HMAC inválida o expirada.');
         return new Response(
           JSON.stringify({
             error: {
+              code: 'INVALID_CSRF_STATE',
               message:
                 'Error de validación de seguridad (CSRF state inválido o expirado). Inicie el proceso de nuevo.',
             },
@@ -154,49 +173,20 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         );
       }
 
-      // Validar contra KV o Cookie y destruir para one-time use
-      let matched = false;
+      // Eliminar de KV inmediatamente (one-time use)
       if (context.env.TIKTOK_KV) {
         try {
-          const kvVal = await context.env.TIKTOK_KV.get(`csrf:${state}`);
-          if (kvVal) {
-            matched = true;
-            // Eliminar de KV inmediatamente (one-time use)
-            await context.env.TIKTOK_KV.delete(`csrf:${state}`);
-          }
+          await context.env.TIKTOK_KV.delete(`csrf:${state}`);
         } catch {
-          // Continuar con validación por cookie
+          // Silencioso
         }
       }
-
-      const cookieHeader = context.request.headers.get('Cookie');
-      const cookieState = parseCookie(cookieHeader, 'alquimia_csrf_state');
-      if (cookieState && cookieState === state) {
-        matched = true;
-      }
-
-      // Si no estuvo en KV ni en cookie pero el HMAC fue válido y tiene menos de 10 min
-      // (por ejemplo en móvil nativo donde las cookies difieren entre WebBrowser y fetch),
-      // el HMAC garantiza la autenticidad originada en el servidor.
-      if (!matched && !isValidHmac) {
-        return new Response(
-          JSON.stringify({
-            error: {
-              message:
-                'Error de validación de seguridad: No se pudo verificar la sesión de origen (CSRF).',
-            },
-          }),
-          { status: 403, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-        );
-      }
     }
 
-    // ── 2. Parámetros para TikTok API v2 ───────────────────────────
+    // ── 3. Parámetros para TikTok API v2 ───────────────────────────
     const params = new URLSearchParams();
     params.append('client_key', clientKey);
-    if (clientSecret) {
-      params.append('client_secret', clientSecret);
-    }
+    params.append('client_secret', clientSecret);
     params.append('grant_type', grantType);
 
     if (grantType === 'authorization_code') {
@@ -247,6 +237,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         data.error?.message ||
         data.error_description ||
         `Error de TikTok OAuth (${tiktokRes.status}).`;
+      console.error('[Cloudflare Pages Functions] token: TikTok API devolvió error:', errMsg);
       return new Response(JSON.stringify({ error: { message: errMsg } }), {
         status: tiktokRes.status >= 400 ? tiktokRes.status : 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -256,7 +247,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     const tokenData = data.data;
     const expiresAt = Date.now() + (tokenData.expires_in || 86400) * 1000;
 
-    // Obtener perfil del usuario desde TikTok API v2 en el backend
+    // ── 4. Obtener perfil del usuario desde TikTok API v2 en el backend ─
     let userProfile = {
       open_id: tokenData.open_id,
       username: '',
@@ -286,8 +277,8 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
           };
         }
       }
-    } catch {
-      // Perfil fallback si user/info tiene restricciones
+    } catch (userErr: unknown) {
+      console.warn('[Cloudflare Pages Functions] user/info warning:', userErr);
     }
 
     const rawHandle = userProfile.username || userProfile.display_name || userProfile.open_id || 'tiktok_creator';
@@ -346,6 +337,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Error interno en el servidor de tokens.';
+    console.error('[Cloudflare Pages Functions] token excepción:', message);
     return new Response(JSON.stringify({ error: { message } }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

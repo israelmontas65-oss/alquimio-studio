@@ -72,34 +72,45 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
       redirectUri = `${origin}/oauth/tiktok`;
     }
 
+    // ── 1. Lectura y diagnóstico específico de variables de entorno ─
     const clientKey =
       context.env.TIKTOK_CLIENT_KEY ||
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_KEY ||
       '';
 
-    const signingSecret =
-      context.env.TIKTOK_STATE_SECRET ||
+    const clientSecret =
       context.env.TIKTOK_CLIENT_SECRET ||
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_SECRET ||
-      clientKey ||
-      'alquimia_csrf_default_salt';
+      '';
 
     if (!clientKey) {
+      console.error('[Cloudflare Pages Functions] auth-url: Falta la variable de entorno TIKTOK_CLIENT_KEY.');
       return new Response(
         JSON.stringify({
           error: {
+            code: 'MISSING_TIKTOK_CLIENT_KEY',
             message:
-              'Falta configurar TIKTOK_CLIENT_KEY en las variables de entorno del servidor Cloudflare Pages.',
+              'Falta configurar la variable TIKTOK_CLIENT_KEY en las variables de entorno de Cloudflare Pages.',
           },
         }),
         { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 1. Generar state único y firmado criptográficamente
+    if (!clientSecret) {
+      console.warn('[Cloudflare Pages Functions] auth-url: Falta TIKTOK_CLIENT_SECRET (recomendado para firma HMAC de CSRF).');
+    }
+
+    const signingSecret =
+      context.env.TIKTOK_STATE_SECRET ||
+      clientSecret ||
+      clientKey ||
+      'alquimia_csrf_default_salt';
+
+    // 2. Generar state único y firmado criptográficamente
     const signedState = await generateSignedState(signingSecret);
 
-    // 2. Guardar en Cloudflare KV temporalmente (TTL de 600 segundos = 10 minutos)
+    // 3. Guardar en Cloudflare KV temporalmente (TTL de 600 segundos = 10 minutos)
     if (context.env.TIKTOK_KV) {
       try {
         await context.env.TIKTOK_KV.put(`csrf:${signedState}`, 'active', {
@@ -110,7 +121,7 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
       }
     }
 
-    // 3. Configurar cookie segura de CSRF state (Max-Age 600s = 10 min)
+    // 4. Configurar cookie segura de CSRF state (Max-Age 600s = 10 min)
     const csrfCookie = `alquimia_csrf_state=${encodeURIComponent(signedState)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600; Secure`;
 
     const params = new URLSearchParams({
@@ -140,6 +151,7 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
           authorizationUrl,
           clientKey,
           state: signedState,
+          redirectUri,
         },
       }),
       {
@@ -153,6 +165,7 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Error al generar URL de autorización.';
+    console.error('[Cloudflare Pages Functions] auth-url excepción:', message);
     return new Response(JSON.stringify({ error: { message } }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

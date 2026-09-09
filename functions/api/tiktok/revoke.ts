@@ -44,12 +44,17 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_SECRET ||
       '';
 
-    if (body.token && clientKey) {
+    if (!clientKey) {
+      console.warn('[Cloudflare Pages Functions] revoke: TIKTOK_CLIENT_KEY no configurado, revocación remota omitida.');
+    }
+    if (!clientSecret) {
+      console.warn('[Cloudflare Pages Functions] revoke: TIKTOK_CLIENT_SECRET no configurado, revocación remota omitida.');
+    }
+
+    if (body.token && clientKey && clientSecret) {
       const params = new URLSearchParams();
       params.append('client_key', clientKey);
-      if (clientSecret) {
-        params.append('client_secret', clientSecret);
-      }
+      params.append('client_secret', clientSecret);
       params.append('token', body.token);
 
       await fetch('https://open.tiktokapis.com/v2/oauth/revoke/', {
@@ -58,7 +63,9 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: params.toString(),
-      }).catch(() => {});
+      }).catch((err) => {
+        console.warn('[Cloudflare Pages Functions] revoke: Fallo en llamada remota de revocación:', err);
+      });
     }
 
     // Borrar de KV si existe
@@ -84,6 +91,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Error al revocar token en TikTok.';
+    console.error('[Cloudflare Pages Functions] revoke excepción:', message);
     return new Response(JSON.stringify({ error: { message } }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
