@@ -792,7 +792,7 @@ function Zone5Publish({ onPress }: { onPress: () => void }) {
           }}
           activeOpacity={0.7}
         >
-          <Text style={z5.legalLinkText}>Privacidad y Seguridad</Text>
+          <Text style={z5.legalLinkText}>Privacidad</Text>
         </TouchableOpacity>
         <Text style={z5.legalSeparator}>•</Text>
         <TouchableOpacity
@@ -806,6 +806,19 @@ function Zone5Publish({ onPress }: { onPress: () => void }) {
           activeOpacity={0.7}
         >
           <Text style={z5.legalLinkText}>Términos</Text>
+        </TouchableOpacity>
+        <Text style={z5.legalSeparator}>•</Text>
+        <TouchableOpacity
+          onPress={() => {
+            if (Platform.OS === 'web' && typeof window !== 'undefined') {
+              window.open('/eliminar-datos.html', '_blank');
+            } else {
+              Linking.openURL('https://alquimia-studio.pages.dev/eliminar-datos.html');
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={z5.legalLinkText}>Eliminar Datos</Text>
         </TouchableOpacity>
       </View>
     </View>
