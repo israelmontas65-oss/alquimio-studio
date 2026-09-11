@@ -61,7 +61,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').then((reg) => {
-            console.log('Alquimio SW registrado:', reg.scope);
+            console.log('Alquimia Estudio SW registrado:', reg.scope);
             reg.update();
 
             reg.onupdatefound = () => {
@@ -69,7 +69,7 @@
               if (installingWorker == null) return;
               installingWorker.onstatechange = () => {
                 if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  console.log('Alquimio PWA: Nueva versión detectada. Activando...');
+                  console.log('Alquimia Estudio PWA: Nueva versión detectada. Activando...');
                   installingWorker.postMessage({ type: 'SKIP_WAITING' });
                 }
               };
@@ -82,7 +82,7 @@
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (!refreshing) {
               refreshing = true;
-              console.log('Alquimio PWA: Nuevo controlador activo. Recargando con los nuevos cambios...');
+              console.log('Alquimia Estudio PWA: Nuevo controlador activo. Recargando con los nuevos cambios...');
               window.location.reload();
             }
           });

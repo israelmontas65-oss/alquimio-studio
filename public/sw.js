@@ -1,14 +1,18 @@
 // ================================================================
-// public/sw.js — Service Worker para Alquimio PWA
+// public/sw.js — Service Worker para Alquimia Estudio PWA
 // Sistema de Auto-Actualización Transparente (Cero Reinstalaciones)
 // ================================================================
 
-const CACHE_NAME = 'alquimio-v1.1.0-' + Date.now();
+const CACHE_NAME = 'alquimia-v1.1.0-' + Date.now();
 
 const CORE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/privacy.html',
+  '/privacy-en.html',
+  '/terms.html',
+  '/eliminar-datos.html',
   '/icons/icon-192.png',
   '/icons/icon-512.png'
 ];
