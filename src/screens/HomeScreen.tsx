@@ -35,14 +35,31 @@ import * as Haptics from 'expo-haptics';
 
 import { useAppStore } from '../store/useAppStore';
 import { usePublish } from '../hooks/usePublish';
-import { PublishModal } from '../components/publish/PublishModal';
-import { UploadMenuModal } from '../components/media/UploadMenuModal';
-import { ConnectAccountModal } from '../components/auth/ConnectAccountModal';
-import { SecurityModal } from '../components/security/SecurityModal';
-import { TrendRadarModal } from '../components/trends/TrendRadarModal';
 import { TrendAlertBanner } from '../components/trends/TrendAlertBanner';
+import { AutoUpdateManager } from '../components/version/AutoUpdateManager';
+import { APP_VERSION } from '../constants/version';
 import { getToken } from '../auth/tokenManager';
 import { checkBackendSession } from '../services/tiktokAuthService';
+
+// Carga diferida universal (Web, iOS, Android) para modales secundarios pesados
+const PublishModal = React.lazy(() =>
+  import('../components/publish/PublishModal').then((m) => ({ default: m.PublishModal }))
+);
+const UploadMenuModal = React.lazy(() =>
+  import('../components/media/UploadMenuModal').then((m) => ({ default: m.UploadMenuModal }))
+);
+const ConnectAccountModal = React.lazy(() =>
+  import('../components/auth/ConnectAccountModal').then((m) => ({ default: m.ConnectAccountModal }))
+);
+const SecurityModal = React.lazy(() =>
+  import('../components/security/SecurityModal').then((m) => ({ default: m.SecurityModal }))
+);
+const TrendRadarModal = React.lazy(() =>
+  import('../components/trends/TrendRadarModal').then((m) => ({ default: m.TrendRadarModal }))
+);
+const WhatsNewModal = React.lazy(() =>
+  import('../components/version/WhatsNewModal').then((m) => ({ default: m.WhatsNewModal }))
+);
 import {
   TikTokSvg,
   InstagramSvg,
@@ -831,9 +848,11 @@ const z4 = StyleSheet.create({
 function Zone5Publish({
   onPress,
   onSecurityPress,
+  onWhatsNewPress,
 }: {
   onPress: () => void;
   onSecurityPress: () => void;
+  onWhatsNewPress: () => void;
 }) {
   const pulse = useSharedValue(0.6);
 
@@ -882,8 +901,18 @@ function Zone5Publish({
 
       {/* Sello de Autoría Legible e Inalterable */}
       <Text style={z5.footerText}>
-        Alquimio v1.0 • Creado por Israel Montás • © 2026 Todos los derechos reservados
+        Alquimio • Creado por Israel Montás • © 2026 Todos los derechos reservados
       </Text>
+
+      {/* Versión Dinámica de la App y Acceso a Novedades */}
+      <TouchableOpacity
+        onPress={onWhatsNewPress}
+        style={z5.versionBadgeRow}
+        activeOpacity={0.7}
+      >
+        <Text style={z5.versionText}>v{APP_VERSION}</Text>
+        <Text style={z5.whatsNewChip}>✨ Novedades</Text>
+      </TouchableOpacity>
 
       {/* Enlaces Legales Públicos */}
       <View style={z5.legalLinks}>
@@ -982,18 +1011,42 @@ const z5 = StyleSheet.create({
     color: C.textFooter,
     fontSize: 11,
   },
+  versionBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  versionText: {
+    color: C.textFooter,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  whatsNewChip: {
+    color: C.cyanNeon,
+    fontSize: 10.5,
+    fontWeight: '700',
+    backgroundColor: 'rgba(0, 240, 255, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 0.8,
+    borderColor: 'rgba(0, 240, 255, 0.25)',
+  },
 });
 
 // ─────────────────────────────────────────────
 // PANTALLA PRINCIPAL (RAÍZ)
 // ─────────────────────────────────────────────
 export default function HomeScreen() {
-  const { selectedMedia, linkAccount } = useAppStore();
+  const { selectedMedia, linkAccount, isPublishModalVisible } = useAppStore();
   const { handlePublish } = usePublish();
   const scrollRef = useRef<ScrollView>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [showSecurityModal, setShowSecurityModal] = useState(false);
   const [showTrendRadar, setShowTrendRadar] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [selectedPlatformForConnect, setSelectedPlatformForConnect] =
     useState<PlatformId | null>(null);
 
@@ -1043,10 +1096,8 @@ export default function HomeScreen() {
       Alert.alert(
         'Instalar Alquimio Studio',
         Platform.OS === 'web' &&
-          /iPhone|iPad|iPod/.test(
-            typeof navigator !== 'undefined' ? navigator.userAgent : ''
-          )
-          ? 'Para instalar en tu iPhone o iPad:\n1. Toca el botón Compartir en Safari.\n2. Elige "Agregar a pantalla de inicio".\n3. ¡Listo! La app se abrirá como nativa.'
+          /iPhone|iPad|iPod/.test(navigator.userAgent || '')
+          ? 'Para instalar en Safari iOS:\n1. Toca el botón Compartir (cuadrado con flecha hacia arriba).\n2. Elige "Añadir a la pantalla de inicio".'
           : 'Para instalar en este navegador:\n1. Toca el icono de instalación en la barra o en el menú ⋮.\n2. Selecciona "Instalar Alquimio Studio".',
         [{ text: 'Entendido' }]
       );
@@ -1065,6 +1116,9 @@ export default function HomeScreen() {
         backgroundColor={C.bg}
         translucent={false}
       />
+
+      {/* Gestor Silencioso de Actualizaciones de PWA */}
+      <AutoUpdateManager />
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
@@ -1122,38 +1176,55 @@ export default function HomeScreen() {
               <Zone5Publish
                 onPress={onPublishClick}
                 onSecurityPress={() => setShowSecurityModal(true)}
+                onWhatsNewPress={() => setShowWhatsNew(true)}
               />
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      {/* Modales del Sistema */}
-      <UploadMenuModal
-        visible={showUpload}
-        onClose={() => setShowUpload(false)}
-      />
-      <ConnectAccountModal
-        platformId={selectedPlatformForConnect}
-        onClose={() => setSelectedPlatformForConnect(null)}
-      />
-      <SecurityModal
-        visible={showSecurityModal}
-        onClose={() => setShowSecurityModal(false)}
-      />
-      <TrendRadarModal
-        visible={showTrendRadar}
-        onClose={() => setShowTrendRadar(false)}
-        onSelectHashtags={(tags) => {
-          const formatted = tags.map((t) => `#${t}`).join(' ');
-          const current = useAppStore.getState().caption;
-          useAppStore.getState().setCaption(current ? `${current}\n\n${formatted}` : formatted);
-        }}
-        onSelectTopicTemplate={(hook, body) => {
-          useAppStore.getState().setCaption(`${hook}\n\n${body}`);
-        }}
-      />
-      <PublishModal />
+      {/* Modales del Sistema con Carga Diferida Universal */}
+      <React.Suspense fallback={null}>
+        {showUpload && (
+          <UploadMenuModal
+            visible={showUpload}
+            onClose={() => setShowUpload(false)}
+          />
+        )}
+        {Boolean(selectedPlatformForConnect) && (
+          <ConnectAccountModal
+            platformId={selectedPlatformForConnect}
+            onClose={() => setSelectedPlatformForConnect(null)}
+          />
+        )}
+        {showSecurityModal && (
+          <SecurityModal
+            visible={showSecurityModal}
+            onClose={() => setShowSecurityModal(false)}
+          />
+        )}
+        {showTrendRadar && (
+          <TrendRadarModal
+            visible={showTrendRadar}
+            onClose={() => setShowTrendRadar(false)}
+            onSelectHashtags={(tags) => {
+              const formatted = tags.map((t) => `#${t}`).join(' ');
+              const current = useAppStore.getState().caption;
+              useAppStore.getState().setCaption(current ? `${current}\n\n${formatted}` : formatted);
+            }}
+            onSelectTopicTemplate={(hook, body) => {
+              useAppStore.getState().setCaption(`${hook}\n\n${body}`);
+            }}
+          />
+        )}
+        {isPublishModalVisible && <PublishModal />}
+        {showWhatsNew && (
+          <WhatsNewModal
+            visible={showWhatsNew}
+            onClose={() => setShowWhatsNew(false)}
+          />
+        )}
+      </React.Suspense>
     </>
   );
 }

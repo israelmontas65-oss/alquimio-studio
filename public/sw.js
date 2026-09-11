@@ -3,7 +3,7 @@
 // Sistema de Auto-Actualización Transparente (Cero Reinstalaciones)
 // ================================================================
 
-const CACHE_NAME = 'alquimio-v-' + Date.now();
+const CACHE_NAME = 'alquimio-v1.1.0-' + Date.now();
 
 const CORE_ASSETS = [
   '/',

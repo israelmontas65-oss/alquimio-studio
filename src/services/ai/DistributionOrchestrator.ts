@@ -9,10 +9,6 @@
 // CUMPLIMIENTO LEGAL: Cero descarga o copia de archivos ajenos.
 // ============================================================
 
-import { ContentClassifierAgent } from './ContentClassifierAgent';
-import { FormatAdapterAgent } from './FormatAdapterAgent';
-import { HashtagAgent } from './HashtagAgent';
-import { ContinuousLearningAgent } from './ContinuousLearningAgent';
 import type {
   MarketTrendsData,
   OrchestratedOptimizationResult,
@@ -116,6 +112,19 @@ export class DistributionOrchestrator {
     mediaType: string = 'video',
     targetRegion: TrendRegion = 'GLOBAL'
   ): Promise<OrchestratedOptimizationResult> {
+    // Carga diferida de agentes de IA: no se inicializan al abrir la app, solo al redactar/optimizar
+    const [
+      { ContentClassifierAgent },
+      { FormatAdapterAgent },
+      { HashtagAgent },
+      { ContinuousLearningAgent },
+    ] = await Promise.all([
+      import('./ContentClassifierAgent'),
+      import('./FormatAdapterAgent'),
+      import('./HashtagAgent'),
+      import('./ContinuousLearningAgent'),
+    ]);
+
     // 1. Obtener tendencias del mercado en vivo
     const liveTrends = await this.fetchMarketTrends(targetRegion);
 
@@ -205,11 +214,12 @@ export class DistributionOrchestrator {
   /**
    * Registra una publicación completada en el motor de aprendizaje continuo
    */
-  public static notifyPostPublished(
+  public static async notifyPostPublished(
     category: any,
     hashtags: string[],
     durationSec: number = 24
   ) {
+    const { ContinuousLearningAgent } = await import('./ContinuousLearningAgent');
     ContinuousLearningAgent.recordPostPublish(category, hashtags, durationSec);
   }
 }

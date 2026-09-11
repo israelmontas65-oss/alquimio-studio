@@ -48,6 +48,7 @@ interface AppActions {
 
   // Redacción
   setCaption: (caption: string) => void;
+  setHashtags: (tags: string[]) => void;
   addHashtag: (tag: string) => void;
   removeHashtag: (tag: string) => void;
   clearHashtags: () => void;
@@ -106,6 +107,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   // ── Redacción ────────────────────────────────────────────────
   setCaption: (caption) => set({ caption }),
+
+  setHashtags: (hashtags) => set({ hashtags }),
 
   addHashtag: (tag) => {
     const cleaned = tag.startsWith('#') ? tag : `#${tag}`;
