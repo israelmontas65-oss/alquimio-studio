@@ -92,6 +92,19 @@ export async function publishAll(payload: PublishPayload): Promise<PlatformPubli
 
   setPublishSessionStatus(allSucceeded ? 'completed' : hasErrors ? 'partial_error' : 'completed');
 
+  // Registrar publicación en el motor de aprendizaje continuo
+  if (allSucceeded || finalResults.some((r) => r.status === 'success')) {
+    import('./ai/ContinuousLearningAgent')
+      .then(({ ContinuousLearningAgent }) => {
+        ContinuousLearningAgent.recordPostPublish(
+          'general',
+          payload.hashtags,
+          payload.media?.duration || 24
+        );
+      })
+      .catch(() => {});
+  }
+
   return finalResults;
 }
 

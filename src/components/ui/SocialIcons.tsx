@@ -175,3 +175,125 @@ export function RefreshSvg({ size = 16, color = '#00F2FE' }: IconProps) {
   );
 }
 
+// ── Shield Check SVG (Seguridad Verificada) ──────────────────────
+export function ShieldCheckSvg({ size = 20, color = '#00FFD4' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M9 12l2 2 4-4"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// ── Key SVG (Autenticación / 2FA) ────────────────────────────────
+export function KeySvg({ size = 20, color = '#F5C518' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="7.5" cy="15.5" r="4.5" stroke={color} strokeWidth="2" />
+      <Path
+        d="M11 12l8.5-8.5M16 6.5l2.5 2.5M18.5 4l2.5 2.5"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// ── Device Mobile SVG (Sesiones Activas) ──────────────────────────
+export function DeviceMobileSvg({ size = 20, color = '#00F0FF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="5"
+        y="2"
+        width="14"
+        height="20"
+        rx="3"
+        stroke={color}
+        strokeWidth="2"
+      />
+      <Path d="M12 18h.01" stroke={color} strokeWidth="3" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ── Credit Card SVG (PCI DSS / Pagos) ────────────────────────────
+export function CreditCardSvg({ size = 20, color = '#00FFD4' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="2"
+        y="5"
+        width="20"
+        height="14"
+        rx="2"
+        stroke={color}
+        strokeWidth="2"
+      />
+      <Path d="M2 10h20" stroke={color} strokeWidth="2" />
+      <Path d="M6 15h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ── Lock Closed SVG (Cifrado / Hash) ─────────────────────────────
+export function LockClosedSvg({ size = 20, color = '#00FFD4' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="3"
+        y="11"
+        width="18"
+        height="11"
+        rx="2"
+        stroke={color}
+        strokeWidth="2"
+      />
+      <Path
+        d="M7 11V7a5 5 0 0 1 10 0v4"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+// ── Copy SVG (Copiar códigos) ────────────────────────────────────
+export function CopySvg({ size = 18, color = '#00FFD4' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="9"
+        y="9"
+        width="13"
+        height="13"
+        rx="2"
+        stroke={color}
+        strokeWidth="2"
+      />
+      <Path
+        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+

@@ -384,6 +384,7 @@
         <li><a href="#section-7">7. Official Data Deletion Instructions</a></li>
         <li><a href="#section-8">8. User Rights (GDPR / CCPA)</a></li>
         <li><a href="#section-9">9. Contact & Ownership</a></li>
+        <li><a href="#section-10">10. Enterprise Security & Payments</a></li>
       </ul>
     </nav>
 
@@ -614,6 +615,75 @@
           <p style="margin-bottom: 8px;"><strong>Official Website:</strong> <a href="https://alquimia-studio.pages.dev" style="color: var(--neon-cyan);">https://alquimia-studio.pages.dev</a></p>
           <p style="margin-bottom: 0;"><strong>Jurisdiction:</strong> Dominican Republic / International standards compliance (GDPR, CCPA, TikTok/Meta/Google Platform Policies).</p>
         </div>
+      </section>
+
+      <!-- SECTION 10: ENTERPRISE SECURITY ARCHITECTURE, PASSWORD HASHING & PAYMENT TOKENIZATION (#section-10) -->
+      <section id="section-10" class="policy-block">
+        <h2><span class="section-num">10</span> Enterprise Security Architecture, Password Hashing & Payment Tokenization</h2>
+        <p>
+          At <strong>Alquimia Studio</strong>, security is an engineered foundational pillar. We implement enterprise-grade cryptography and defense-in-depth architecture equivalent to the global standards established by Meta (Facebook, Instagram, WhatsApp), Google (YouTube), and TikTok, engineered to guarantee verifiable trust for individual creators, brands, and enterprise agencies.
+        </p>
+
+        <h3>1. Mathematically Irreversible Password Hashing</h3>
+        <p>
+          User passwords registered on Alquimia Studio undergo state-of-the-art one-way cryptographic derivation functions strictly adhering to <strong>OWASP</strong> recommendations:
+        </p>
+        <ul>
+          <li><strong>PBKDF2-SHA512 Algorithm with 100,000 Iterations / Argon2id-Compatible:</strong> Every password is computationally strengthened with 100,000 rounds of cryptographic derivation, effectively rendering GPU-accelerated and ASIC mining cluster brute-force attempts computationally impossible.</li>
+          <li><strong>Unique 128-bit Cryptographic Salt per User:</strong> Every user account is provisioned with a 16-byte random salt generated exclusively via a cryptographically secure pseudo-random number generator (CSPRNG, <code>crypto.getRandomValues</code>). This permanently eliminates the feasibility of precomputed Rainbow Table attacks.</li>
+          <li><strong>Zero Plain-Text Password Architecture:</strong> Neither developers, system administrators, nor hostile actors with database access can ever read, reverse-engineer, or decrypt a password. The system strictly verifies whether the mathematical hash of an entered password matches the stored hash. Plain-text passwords are never logged or stored.</li>
+        </ul>
+
+        <h3>2. Proactive Compromised Password Precheck (Meta Private Precheck Standard)</h3>
+        <p>
+          In line with modern enterprise security standards to eliminate credential-stuffing from third-party data breaches across the web:
+        </p>
+        <ul>
+          <li><strong>k-Anonymity Verification (Have I Been Pwned API):</strong> Upon password registration or modification, Alquimia Studio calculates the SHA-1 digest locally and sends only the first 5 hexadecimal characters of the hash to the Have I Been Pwned breach registry. The remaining 35 characters never leave our secure infrastructure.</li>
+          <li><strong>Proactive Breach Shielding:</strong> If a submitted password appears in public breach datasets, the system immediately blocks its usage and requires a strong, uncompromised alternative, shielding creators before any potential vulnerability can emerge.</li>
+        </ul>
+
+        <h3>3. Multi-Factor Authentication (2FA / MFA - RFC 6238 TOTP)</h3>
+        <p>
+          Alquimia Studio provides native support for universal <strong>Time-based One-Time Passwords (TOTP)</strong> adhering to the <strong>RFC 6238</strong> international standard:
+        </p>
+        <ul>
+          <li><strong>Universal Compatibility:</strong> 160-bit Base32 cryptographic secrets fully compatible with all major authenticator solutions: <strong>Google Authenticator, Microsoft Authenticator, Authy, Apple Keychain, and 1Password</strong>.</li>
+          <li><strong>Strict Temporal Drift Tolerance:</strong> 6-digit rolling codes refreshed every 30 seconds, evaluated with a controlled ±30-second synchronization window to eliminate timing discrepancies across network latencies or device clocks.</li>
+          <li><strong>10 Single-Use Emergency Recovery Codes:</strong> Cryptographically generated formatted tokens (<code>XXXX-XXXX</code>). Each code is automatically invalidated and permanently burned upon first consumption.</li>
+        </ul>
+
+        <h3>4. Brute-Force & Anomaly Defense (Edge Rate Limiting)</h3>
+        <p>
+          Authentication endpoints are safeguarded directly at the network edge (Cloudflare Edge Workers) with active containment mechanisms:
+        </p>
+        <ul>
+          <li><strong>Progressive Lockout Thresholds:</strong> 5 failed authentication attempts automatically activate a 60-second cooldown period. Escalation to 10 failed attempts triggers a 15-minute security lockout with immediate notification.</li>
+          <li><strong>Device Fingerprinting & Geolocation Integrity:</strong> Edge headers (<code>CF-IPCountry</code>, <code>CF-Connecting-IP</code>, and <code>User-Agent</code>) are verified to detect anomalous access attempts, unusual geographical origins, or unverified headless emulators.</li>
+          <li><strong>Short-Lived JWT Sessions & Rotatable Refresh Tokens:</strong> Session access tokens carry strict short lifetimes, and refresh tokens follow single-use rotation (RTR), preventing session hijacking and replay vectors.</li>
+        </ul>
+
+        <h3>5. Payment Method Tokenization & Full PCI DSS Level 1 Compliance</h3>
+        <div class="alert-box gold">
+          <strong>💳 PCI DSS SAQ-A Compliance Guarantee:</strong>
+          Alquimia Studio operates under a strict <em>Zero Card Data</em> architecture. Primary Account Numbers (16-digit PAN), expiration dates, and card verification values (CVV/CVC) <strong>NEVER touch, traverse, or reside on Alquimia Studio servers</strong>.
+        </div>
+        <ul>
+          <li><strong>Direct Browser-to-Stripe Tokenization (Stripe Elements / Stripe.js):</strong> Payment interfaces operate inside isolated iframes hosted directly by Stripe under PCI DSS Level 1 certified banking infrastructure. Card data travels securely encrypted from the user's browser directly to Stripe.</li>
+          <li><strong>Exclusive Opaque Token Storage:</strong> Alquimia Studio servers exclusively receive and store an irreversible opaque token identifier (e.g. <code>pm_1Oxx...</code> or <code>tok_1Oxx...</code>), alongside the card brand and last 4 digits strictly for human identification on billing statements.</li>
+          <li><strong>Server-Side Zero-Card Firewall:</strong> Our API immediately rejects any payload containing raw credit card fields with an explicit HTTP 400 error (<code>PCI_DSS_VIOLATION_RAW_CARD_REJECTED</code>), proving strict non-transmission compliance.</li>
+        </ul>
+
+        <h3>6. End-to-End Cryptography in Transit & at Rest</h3>
+        <ul>
+          <li><strong>In Transit:</strong> Mandatory TLS 1.3 enforced across all connections with HTTP Strict Transport Security (<code>Strict-Transport-Security: max-age=63072000; includeSubDomains; preload</code>), precluding protocol downgrade attacks and eavesdropping.</li>
+          <li><strong>At Rest:</strong> Authenticated symmetric encryption <strong>AES-256-GCM</strong> protects sensitive OAuth credentials and platform tokens at rest, utilizing random 96-bit initialization vectors per record and master keys secured in encrypted server environment secrets.</li>
+        </ul>
+
+        <h3>7. Active Session Auditing & Global Immediate Session Revocation</h3>
+        <p>
+          Users can inspect their active sessions and connected devices in real time via the in-app <strong>Security Center</strong>, and trigger an emergency <strong>"Sign out of all devices"</strong> action that globally revokes all active session tokens across the edge cluster in under one second.
+        </p>
       </section>
 
     </main>

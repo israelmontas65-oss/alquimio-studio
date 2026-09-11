@@ -38,6 +38,9 @@ import { usePublish } from '../hooks/usePublish';
 import { PublishModal } from '../components/publish/PublishModal';
 import { UploadMenuModal } from '../components/media/UploadMenuModal';
 import { ConnectAccountModal } from '../components/auth/ConnectAccountModal';
+import { SecurityModal } from '../components/security/SecurityModal';
+import { TrendRadarModal } from '../components/trends/TrendRadarModal';
+import { TrendAlertBanner } from '../components/trends/TrendAlertBanner';
 import { getToken } from '../auth/tokenManager';
 import { checkBackendSession } from '../services/tiktokAuthService';
 import {
@@ -148,10 +151,14 @@ function TechCorners({
 // ─────────────────────────────────────────────
 function Zone1Header({
   onInstallPress,
+  onSecurityPress,
+  onTrendRadarPress,
   isStandalone,
   windowHeight,
 }: {
   onInstallPress: () => void;
+  onSecurityPress: () => void;
+  onTrendRadarPress: () => void;
   isStandalone: boolean;
   windowHeight: number;
 }) {
@@ -185,6 +192,24 @@ function Zone1Header({
 
   return (
     <View style={[z1.container, { minHeight: 180, height: dynamicHeight }]}>
+      {/* Botón Centro de Seguridad */}
+      <TouchableOpacity
+        onPress={onSecurityPress}
+        style={z1.securityBtn}
+        activeOpacity={0.7}
+      >
+        <Text style={z1.securityText}>🛡️ SEGURIDAD</Text>
+      </TouchableOpacity>
+
+      {/* Botón Radar de Tendencias en Vivo */}
+      <TouchableOpacity
+        onPress={onTrendRadarPress}
+        style={z1.radarHeaderBtn}
+        activeOpacity={0.7}
+      >
+        <Text style={z1.radarHeaderText}>🔥 TENDENCIAS</Text>
+      </TouchableOpacity>
+
       {/* Botón PWA Condicional (Oculto en Standalone instalada) */}
       {!isStandalone && (
         <TouchableOpacity
@@ -240,6 +265,42 @@ const z1 = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     paddingTop: 8,
+  },
+  securityBtn: {
+    position: 'absolute',
+    top: 4,
+    left: 0,
+    backgroundColor: 'rgba(0, 255, 212, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 0.8,
+    borderColor: 'rgba(0, 255, 212, 0.4)',
+    zIndex: 10,
+  },
+  securityText: {
+    color: C.cyanNodes,
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  radarHeaderBtn: {
+    position: 'absolute',
+    top: 34,
+    left: 0,
+    backgroundColor: 'rgba(245, 197, 24, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 0.8,
+    borderColor: 'rgba(245, 197, 24, 0.4)',
+    zIndex: 10,
+  },
+  radarHeaderText: {
+    color: C.gold,
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
   installBtn: {
     position: 'absolute',
@@ -434,7 +495,7 @@ const z2 = StyleSheet.create({
 // ─────────────────────────────────────────────
 // ZONA 3: PANEL TÁCTICO DE REDACCIÓN E IA (~16%, 115px)
 // ─────────────────────────────────────────────
-function Zone3Compose() {
+function Zone3Compose({ onOpenTrendRadar }: { onOpenTrendRadar: () => void }) {
   const { caption, setCaption, aiLoading, setAiLoading, selectedMedia } =
     useAppStore();
   const EMOJIS = ['😊', '🔥', '🚀', '💡', '✨', '🎯', '💎', '⚡'];
@@ -445,59 +506,76 @@ function Zone3Compose() {
     const mediaType = selectedMedia ? selectedMedia.type : 'video';
     const { generateSmartCaptions } = await import('../services/aiService');
     const result = await generateSmartCaptions(caption, mediaType);
-    setCaption(
-      result.caption +
-        (result.hashtags.length
-          ? '\n\n' + result.hashtags.map((h) => `#${h}`).join(' ')
-          : '')
-    );
+    setCaption(result.caption);
     setAiLoading(false);
   };
 
   return (
-    <View style={z3.box}>
-      <TechCorners color={C.cyanNeon} size={8} />
-
-      <TextInput
-        value={caption}
-        onChangeText={setCaption}
-        placeholder="Redacta tu transmisión y hashtags aquí..."
-        placeholderTextColor={C.textMuted}
-        multiline
-        style={z3.input}
+    <View style={z3.wrapper}>
+      {/* Banner inteligente de tendencias emergentes */}
+      <TrendAlertBanner
+        onApplyTrendTag={(tag) => {
+          setCaption(caption ? `${caption} #${tag}` : `#${tag}`);
+        }}
       />
 
-      <View style={z3.bottomBar}>
-        <TouchableOpacity
-          onPress={handleOptimize}
-          disabled={aiLoading || !caption.trim()}
-          style={[
-            z3.aiBtn,
-            getWebGlow('rgba(255, 215, 0, 0.4)', 8),
-            (!caption.trim() || aiLoading) && { opacity: 0.5 },
-          ]}
-          activeOpacity={0.8}
-        >
-          {aiLoading ? (
-            <ActivityIndicator size="small" color={C.gold} />
-          ) : (
-            <Text style={z3.aiText}>✨ Optimizar con IA</Text>
-          )}
-        </TouchableOpacity>
+      <View style={z3.box}>
+        <TechCorners color={C.cyanNeon} size={8} />
 
-        <View style={z3.emojiRow}>
-          {EMOJIS.map((e) => (
+        <TextInput
+          value={caption}
+          onChangeText={setCaption}
+          placeholder="Redacta tu transmisión y hashtags aquí..."
+          placeholderTextColor={C.textMuted}
+          multiline
+          style={z3.input}
+        />
+
+        <View style={z3.bottomBar}>
+          <View style={z3.btnGroup}>
             <TouchableOpacity
-              key={e}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setCaption(caption + e);
-              }}
-              activeOpacity={0.6}
+              onPress={handleOptimize}
+              disabled={aiLoading || !caption.trim()}
+              style={[
+                z3.aiBtn,
+                getWebGlow('rgba(255, 215, 0, 0.4)', 8),
+                (!caption.trim() || aiLoading) && { opacity: 0.5 },
+              ]}
+              activeOpacity={0.8}
             >
-              <Text style={z3.emoji}>{e}</Text>
+              {aiLoading ? (
+                <ActivityIndicator size="small" color={C.gold} />
+              ) : (
+                <Text style={z3.aiText}>✨ Optimizar IA</Text>
+              )}
             </TouchableOpacity>
-          ))}
+
+            <TouchableOpacity
+              onPress={onOpenTrendRadar}
+              style={[
+                z3.radarBtn,
+                getWebGlow('rgba(0, 255, 212, 0.25)', 8),
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text style={z3.radarText}>🔥 Radar</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={z3.emojiRow}>
+            {EMOJIS.map((e) => (
+              <TouchableOpacity
+                key={e}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setCaption(caption + e);
+                }}
+                activeOpacity={0.6}
+              >
+                <Text style={z3.emoji}>{e}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </View>
     </View>
@@ -505,6 +583,9 @@ function Zone3Compose() {
 }
 
 const z3 = StyleSheet.create({
+  wrapper: {
+    gap: 6,
+  },
   box: {
     minHeight: 115,
     height: 115,
@@ -532,9 +613,14 @@ const z3 = StyleSheet.create({
     paddingTop: 8,
     marginTop: 4,
   },
+  btnGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   aiBtn: {
     backgroundColor: 'rgba(255, 215, 0, 0.12)',
-    paddingHorizontal: 11,
+    paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 6,
     borderWidth: 0.8,
@@ -542,15 +628,28 @@ const z3 = StyleSheet.create({
   },
   aiText: {
     color: C.gold,
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
+  },
+  radarBtn: {
+    backgroundColor: 'rgba(0, 255, 212, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 0.8,
+    borderColor: C.cyanNodes,
+  },
+  radarText: {
+    color: C.cyanNodes,
+    fontSize: 10.5,
+    fontWeight: '800',
   },
   emojiRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 5,
   },
   emoji: {
-    fontSize: 15,
+    fontSize: 14,
   },
 });
 
@@ -729,7 +828,13 @@ const z4 = StyleSheet.create({
 // ─────────────────────────────────────────────
 // ZONA 5: BOTÓN MAESTRO "PUBLICAR EN BLOQUE" (56px) Y AUTORÍA
 // ─────────────────────────────────────────────
-function Zone5Publish({ onPress }: { onPress: () => void }) {
+function Zone5Publish({
+  onPress,
+  onSecurityPress,
+}: {
+  onPress: () => void;
+  onSecurityPress: () => void;
+}) {
   const pulse = useSharedValue(0.6);
 
   useEffect(() => {
@@ -782,6 +887,13 @@ function Zone5Publish({ onPress }: { onPress: () => void }) {
 
       {/* Enlaces Legales Públicos */}
       <View style={z5.legalLinks}>
+        <TouchableOpacity
+          onPress={onSecurityPress}
+          activeOpacity={0.7}
+        >
+          <Text style={[z5.legalLinkText, { color: C.gold }]}>🛡️ Seguridad</Text>
+        </TouchableOpacity>
+        <Text style={z5.legalSeparator}>•</Text>
         <TouchableOpacity
           onPress={() => {
             if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -880,6 +992,8 @@ export default function HomeScreen() {
   const { handlePublish } = usePublish();
   const scrollRef = useRef<ScrollView>(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [showTrendRadar, setShowTrendRadar] = useState(false);
   const [selectedPlatformForConnect, setSelectedPlatformForConnect] =
     useState<PlatformId | null>(null);
 
@@ -985,6 +1099,8 @@ export default function HomeScreen() {
               {/* ZONA 1: Portal Holográfico Viviente */}
               <Zone1Header
                 onInstallPress={handleInstallPress}
+                onSecurityPress={() => setShowSecurityModal(true)}
+                onTrendRadarPress={() => setShowTrendRadar(true)}
                 isStandalone={isStandalone}
                 windowHeight={height}
               />
@@ -993,7 +1109,9 @@ export default function HomeScreen() {
               <Zone2Upload onPress={() => setShowUpload(true)} />
 
               {/* ZONA 3: Panel Táctico de Redacción e IA */}
-              <Zone3Compose />
+              <Zone3Compose
+                onOpenTrendRadar={() => setShowTrendRadar(true)}
+              />
 
               {/* ZONA 4: Consola Plataformas Sincronizadas */}
               <Zone4Platforms
@@ -1001,7 +1119,10 @@ export default function HomeScreen() {
               />
 
               {/* ZONA 5: Botón Maestro y Autoría */}
-              <Zone5Publish onPress={onPublishClick} />
+              <Zone5Publish
+                onPress={onPublishClick}
+                onSecurityPress={() => setShowSecurityModal(true)}
+              />
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -1015,6 +1136,22 @@ export default function HomeScreen() {
       <ConnectAccountModal
         platformId={selectedPlatformForConnect}
         onClose={() => setSelectedPlatformForConnect(null)}
+      />
+      <SecurityModal
+        visible={showSecurityModal}
+        onClose={() => setShowSecurityModal(false)}
+      />
+      <TrendRadarModal
+        visible={showTrendRadar}
+        onClose={() => setShowTrendRadar(false)}
+        onSelectHashtags={(tags) => {
+          const formatted = tags.map((t) => `#${t}`).join(' ');
+          const current = useAppStore.getState().caption;
+          useAppStore.getState().setCaption(current ? `${current}\n\n${formatted}` : formatted);
+        }}
+        onSelectTopicTemplate={(hook, body) => {
+          useAppStore.getState().setCaption(`${hook}\n\n${body}`);
+        }}
       />
       <PublishModal />
     </>

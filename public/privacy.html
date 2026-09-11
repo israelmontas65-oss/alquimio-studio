@@ -481,6 +481,7 @@
         <li><a href="#section-7">7. Instrucciones Oficiales de Eliminación</a></li>
         <li><a href="#section-8">8. Derechos del Usuario (GDPR / CCPA)</a></li>
         <li><a href="#section-9">9. Contacto y Titularidad Legal</a></li>
+        <li><a href="#section-10">10. Seguridad Empresarial y Pagos</a></li>
       </ul>
     </nav>
 
@@ -719,6 +720,75 @@
           <p style="margin-bottom: 8px;"><strong>Sitio Web Oficial:</strong> <a href="https://alquimia-studio.pages.dev" style="color: var(--neon-cyan);">https://alquimia-studio.pages.dev</a></p>
           <p style="margin-bottom: 0;"><strong>Jurisdicción:</strong> República Dominicana / Aplicación de estándares internacionales de protección de datos (GDPR / CCPA / Directrices de APIs de Plataformas Sociales).</p>
         </div>
+      </section>
+
+      <!-- SECCIÓN 10: ARQUITECTURA DE SEGURIDAD EMPRESARIAL, HASHING DE CONTRASEÑAS Y MÉTODOS DE PAGO (ANCLA OFICIAL #section-10) -->
+      <section id="section-10" class="policy-block">
+        <h2><span class="section-num">10</span> Arquitectura de Seguridad Empresarial, Hashing de Contraseñas y Tokenización de Pagos</h2>
+        <p>
+          En <strong>Alquimia Studio</strong>, la seguridad no es una capa accesoria sino el núcleo fundacional de nuestra ingeniería. Implementamos una arquitectura criptográfica y de defensa en profundidad equivalente a los estándares globales aplicados por Meta (Facebook, Instagram, WhatsApp), Google (YouTube) y TikTok, diseñada para generar confianza plena y verificable tanto en creadores individuales como en corporaciones y agencias que confían en nuestra infraestructura.
+        </p>
+
+        <h3>1. Hashing de Contraseñas Irreversible por Diseño Matemático</h3>
+        <p>
+          Las contraseñas de las cuentas registradas en Alquimia Studio son procesadas mediante funciones de derivación criptográfica unidireccionales de máxima exigencia recomendadas por <strong>OWASP</strong> (Open Web Application Security Project):
+        </p>
+        <ul>
+          <li><strong>Algoritmo PBKDF2-SHA512 con 100,000 Iteraciones / Compatible Argon2id:</strong> Cada clave es derivada mediante 100,000 rondas de cómputo criptográfico intensivo, neutralizando de forma efectiva cualquier vector de ataque por aceleración de hardware (GPU o clusters de minería ASIC).</li>
+          <li><strong>Salt Criptográfico Único de 128 bits por Usuario:</strong> Cada usuario cuenta con un valor aleatorio (salt) de 16 bytes generado exclusivamente mediante un generador de números pseudoaleatorios criptográficamente seguro (CSPRNG, <code>crypto.getRandomValues</code>). Esto erradica por completo la eficacia de ataques basados en tablas precalculadas (Rainbow Tables).</li>
+          <li><strong>Cero Contraseñas en Texto Plano:</strong> Ni el equipo de desarrollo, ni administradores, ni atacantes con acceso a base de datos pueden descifrar o recuperar una contraseña. El sistema únicamente valida si el hash de una contraseña ingresada coincide con el hash almacenado, sin posibilidad alguna de reversión matemática.</li>
+        </ul>
+
+        <h3>2. Verificación Preventiva de Contraseñas Filtradas (Modelo Meta Private Password Precheck)</h3>
+        <p>
+          Siguiendo el estándar de seguridad implementado por Meta para prevenir el reciclaje de credenciales vulneradas en incidentes de terceros en internet:
+        </p>
+        <ul>
+          <li><strong>Inspección con k-Anonimato (Have I Been Pwned API):</strong> Al crear o modificar una contraseña, Alquimia Studio calcula localmente su resumen SHA-1 y envía únicamente los primeros 5 caracteres hexadecimales del hash a la base de datos global de Have I Been Pwned. Los 35 caracteres restantes nunca abandonan nuestra infraestructura segura.</li>
+          <li><strong>Bloqueo Proactivo de Claves Comprometidas:</strong> Si la contraseña aparece en listas mundiales de brechas públicas, el sistema bloquea inmediatamente su uso y obliga a seleccionar una combinación segura, protegiendo al creador antes de que su cuenta pueda verse amenazada.</li>
+        </ul>
+
+        <h3>3. Autenticación Multifactor (2FA / MFA - Estándar TOTP RFC 6238)</h3>
+        <p>
+          Alquimia Studio pone a disposición de sus usuarios el protocolo universal <strong>TOTP (Time-based One-Time Password)</strong> conforme al estándar <strong>RFC 6238</strong>:
+        </p>
+        <ul>
+          <li><strong>Compatibilidad Universal:</strong> Claves secretas de 160 bits codificadas en Base32, compatibles con cualquier aplicación de autenticación del mercado: <strong>Google Authenticator, Microsoft Authenticator, Authy, Apple Keychain y 1Password</strong>.</li>
+          <li><strong>Rotación Temporal y Ventana de Tolerancia Estricta:</strong> Códigos numéricos de 6 dígitos que rotan cada 30 segundos, evaluados con una ventana temporal de deriva controlada de ±30 segundos para evitar desfases de red o reloj de dispositivo.</li>
+          <li><strong>10 Códigos de Respaldo de Un Solo Uso (Emergency Recovery Codes):</strong> Creados criptográficamente con formato <code>XXXX-XXXX</code>. Cada código queda invalidado y destruido automáticamente de forma irreversible tras su primer consumo.</li>
+        </ul>
+
+        <h3>4. Protección contra Ataques de Fuerza Bruta y Detección de Anomalías</h3>
+        <p>
+          Nuestros endpoints de autenticación están blindados en el borde de red (Cloudflare Edge Workers) con políticas activas de contención:
+        </p>
+        <ul>
+          <li><strong>Bloqueo Progresivo Automático (Rate Limiting Dinámico):</strong> A partir de 5 intentos de inicio de sesión fallidos, la IP y cuenta entran en bloqueo de enfriamiento de 60 segundos. Si los intentos fallidos alcanzan 10, se escala a un bloqueo de seguridad de 15 minutos con notificación inmediata.</li>
+          <li><strong>Rastreo de Huella de Dispositivo y Geolocalización Segura:</strong> Monitoreo de cabeceras seguras de borde (<code>CF-IPCountry</code>, <code>CF-Connecting-IP</code> y <code>User-Agent</code>) para detectar intentos de conexión inusuales desde países no habituales o emuladores no identificados.</li>
+          <li><strong>Tokens de Sesión JWT de Vida Corta + Refresh Tokens Rotativos:</strong> Los tokens de acceso expiran en periodos reducidos y los tokens de refresco son de uso único (refresh token rotation), previniendo ataques de reutilización o secuestro de sesión.</li>
+        </ul>
+
+        <h3>5. Tokenización de Métodos de Pago y Cumplimiento Estricto PCI DSS Nivel 1</h3>
+        <div class="alert-box gold">
+          <strong>💳 Declaración de Cumplimiento PCI DSS SAQ-A:</strong>
+          Alquimia Studio opera bajo una arquitectura <em>Zero Card Data</em> (cero almacenamiento de datos de tarjeta). Los números de tarjeta de crédito/débito (PAN de 16 dígitos), fechas de vencimiento y códigos de seguridad (CVV/CVC) <strong>NUNCA entran en contacto, jamás son transmitidos ni son procesados por nuestros servidores</strong>.
+        </div>
+        <ul>
+          <li><strong>Captura Segura Directa en Cliente (Stripe Elements / Stripe.js):</strong> Los formularios de pago se renderizan a través de iframes aislados de Stripe alojados bajo certificación PCI DSS Nivel 1 (el nivel más exigente de la industria financiera mundial). El número de tarjeta viaja encriptado directamente desde el navegador del usuario hacia la infraestructura bancaria de Stripe.</li>
+          <li><strong>Almacenamiento Exclusivo de Tokens Opacos:</strong> Los servidores de Alquimia Studio solo reciben y conservan un identificador tokenizado opaco y no reversible (ejemplo: <code>pm_1Oxx...</code> o <code>tok_1Oxx...</code>) junto con los últimos 4 dígitos y la marca comercial (Visa, Mastercard, Amex) con el único fin de permitir al usuario identificar visualmente su tarjeta registrada.</li>
+          <li><strong>Firewall de Rechazo de Raíz:</strong> Nuestra API rechaza de forma tajante e instantánea con código HTTP 400 (<code>PCI_DSS_VIOLATION_RAW_CARD_REJECTED</code>) cualquier petición que contenga campos en crudo de tarjetas bancarias.</li>
+        </ul>
+
+        <h3>6. Cifrado de Extremo a Extremo en Tránsito y en Reposo</h3>
+        <ul>
+          <li><strong>En Tránsito:</strong> Protocolo TLS 1.3 forzado en toda la plataforma, reforzado con cabeceras estrictas HSTS (<code>Strict-Transport-Security: max-age=63072000; includeSubDomains; preload</code>) para impedir cualquier degradación de protocolo (Downgrade Attacks) o intercepción de paquetes (Man-In-The-Middle).</li>
+          <li><strong>En Reposo:</strong> Cifrado simétrico autenticado <strong>AES-256-GCM</strong> para los tokens de acceso OAuth (TikTok, YouTube, Meta) con vectores de inicialización aleatorios de 96 bits generados por cada registro. Claves maestras resguardadas en variables de entorno secretas del servidor, nunca expuestas en el código fuente ni en el cliente web.</li>
+        </ul>
+
+        <h3>7. Auditoría Visible de Dispositivos y Cierre de Sesión Global Inmediato</h3>
+        <p>
+          Los usuarios pueden auditar en todo momento las conexiones abiertas en su cuenta desde el <strong>Centro de Seguridad</strong> de la aplicación y cuentan con el botón de emergencia <strong>"Cerrar sesión en todos los dispositivos"</strong> que revoca de inmediato todas las sesiones activas, invalidando credenciales de acceso a nivel global en menos de un segundo.
+        </p>
       </section>
 
     </main>
