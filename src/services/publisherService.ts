@@ -1,11 +1,14 @@
 // ============================================================
 // src/services/publisherService.ts
 // Orquestador central de publicación – Patrón Adapter
-// Gestiona el envío asíncrono y paralelo a todas las plataformas
+// Gestión asíncrona, paralela e independiente con Promise.allSettled
+// Auto-refresh de tokens y manejo honesto de WhatsApp (action_required)
 // ============================================================
 
 import { getToken, isTokenValid } from '../auth/tokenManager';
 import { getValidTikTokToken } from './tiktokAuthService';
+import { getValidYouTubeToken } from './youtubeAuthService';
+import { publishToWhatsAppIntent } from './whatsappService';
 import { TikTokAdapter } from './adapters/TikTokAdapter';
 import { MetaAdapter } from './adapters/MetaAdapter';
 import { YouTubeAdapter } from './adapters/YouTubeAdapter';
@@ -14,53 +17,12 @@ import type { PlatformId, PlatformPublishResult } from '../types/platform.types'
 import type { PublishPayload } from '../types/publish.types';
 import { useAppStore } from '../store/useAppStore';
 
-// ── Constantes de configuración de cuentas ───────────────────
-// En producción estos IDs vendrían del perfil del usuario autenticado.
-const ACCOUNT_IDS: Partial<Record<PlatformId, string>> = {
-  instagram: process.env.EXPO_PUBLIC_IG_ACCOUNT_ID ?? 'YOUR_IG_ACCOUNT_ID',
-  facebook: process.env.EXPO_PUBLIC_FB_PAGE_ID ?? 'YOUR_FB_PAGE_ID',
-};
-
-// ── Fábrica de adaptadores ────────────────────────────────────
-function createAdapter(platformId: PlatformId): IPublishAdapter {
-  switch (platformId) {
-    case 'tiktok':
-      return new TikTokAdapter();
-    case 'instagram':
-      return new MetaAdapter('instagram', ACCOUNT_IDS.instagram!);
-    case 'facebook':
-      return new MetaAdapter('facebook', ACCOUNT_IDS.facebook!);
-    case 'youtube':
-      return new YouTubeAdapter();
-    case 'whatsapp':
-      return createWhatsAppStub();
-    default:
-      throw new Error(`Adaptador no disponible para: ${platformId}`);
-  }
+// ── Fábrica de adaptadores Meta con ID dinámico de cuenta/página ─────
+function createMetaAdapter(platformId: 'instagram' | 'facebook', accountId: string): IPublishAdapter {
+  return new MetaAdapter(platformId, accountId);
 }
 
-// Stub para WhatsApp (pendiente integración server-side)
-function createWhatsAppStub(): IPublishAdapter {
-  return {
-    async upload() {
-      await new Promise((r) => setTimeout(r, 1500));
-      return 'wa_stub_id';
-    },
-    async publish() {
-      await new Promise((r) => setTimeout(r, 1000));
-      return 'wa_stub_post';
-    },
-    async getStatus() {
-      return {
-        status: 'success' as const,
-        postUrl: undefined,
-        errorMessage: undefined,
-      };
-    },
-  };
-}
-
-// ── Función principal de publicación ─────────────────────────
+// ── Función principal de publicación en bloque ───────────────
 export async function publishAll(payload: PublishPayload): Promise<PlatformPublishResult[]> {
   const { updatePlatformResult, setPublishSessionStatus } = useAppStore.getState();
 
@@ -88,12 +50,14 @@ export async function publishAll(payload: PublishPayload): Promise<PlatformPubli
 
   // Determinar estado final de la sesión
   const hasErrors = finalResults.some((r) => r.status === 'error');
-  const allSucceeded = finalResults.every((r) => r.status === 'success');
+  const allResolved = finalResults.every(
+    (r) => r.status === 'success' || r.status === 'action_required'
+  );
 
-  setPublishSessionStatus(allSucceeded ? 'completed' : hasErrors ? 'partial_error' : 'completed');
+  setPublishSessionStatus(allResolved ? 'completed' : hasErrors ? 'partial_error' : 'completed');
 
   // Registrar publicación en el motor de aprendizaje continuo
-  if (allSucceeded || finalResults.some((r) => r.status === 'success')) {
+  if (allResolved || finalResults.some((r) => r.status === 'success')) {
     import('./ai/ContinuousLearningAgent')
       .then(({ ContinuousLearningAgent }) => {
         ContinuousLearningAgent.recordPostPublish(
@@ -114,32 +78,34 @@ async function publishToPlatform(
   payload: PublishPayload,
   onUpdate: (result: PlatformPublishResult) => void
 ): Promise<PlatformPublishResult> {
-  const reportProgress = (progress: number, status: PlatformPublishResult['status'] = 'uploading') => {
+  const reportProgress = (
+    progress: number,
+    status: PlatformPublishResult['status'] = 'uploading'
+  ) => {
     onUpdate({ platformId, status, progress });
   };
 
   try {
     reportProgress(0, 'uploading');
 
-    // ── Publicación 100% Real para TikTok ───────────────────
+    // ── 1. TikTok Oficial (API v2) ─────────────────────────────
     if (platformId === 'tiktok') {
       const token = await getValidTikTokToken();
       if (!token) {
         throw new Error(
-          'Cuenta de TikTok no conectada o autorización expirada. Abre el modal de TikTok y conecta tu cuenta oficial.'
+          'Cuenta de TikTok no conectada o token expirado. Conecta tu cuenta oficial de TikTok antes de publicar.'
         );
       }
 
       if (!payload.media) {
-        throw new Error('No hay video seleccionado para publicar en TikTok.');
+        throw new Error('No hay archivo de video seleccionado para publicar en TikTok.');
       }
 
       const fullCaption = [payload.caption, ...payload.hashtags].filter(Boolean).join(' ');
       const adapter = new TikTokAdapter();
 
-      reportProgress(5, 'uploading');
+      reportProgress(10, 'uploading');
 
-      // Subir video binario a TikTok Content Posting API v2
       const publishId = await adapter.upload(
         payload.media,
         token,
@@ -147,9 +113,8 @@ async function publishToPlatform(
         { title: fullCaption }
       );
 
-      reportProgress(90, 'processing');
+      reportProgress(85, 'processing');
 
-      // Monitorear estado hasta finalización
       const statusRes = await adapter.pollStatus(publishId, token, 2500, 24);
 
       if (statusRes.status === 'error') {
@@ -160,43 +125,98 @@ async function publishToPlatform(
         platformId: 'tiktok',
         status: 'success',
         progress: 100,
-        postUrl: statusRes.postUrl || `https://www.tiktok.com`,
+        postUrl: statusRes.postUrl || 'https://www.tiktok.com',
         postId: publishId,
+        isSandbox: true, // Notificación transparente de Sandbox de TikTok
       };
 
       onUpdate(finalResult);
       return finalResult;
     }
 
-    // ── Otras plataformas (Meta, YouTube, WhatsApp) ─────────
-    const adapter = createAdapter(platformId);
-    const tokenObj = await getToken(platformId);
-    const token = tokenObj?.accessToken || 'token_placeholder';
-
-    reportProgress(15, 'uploading');
-    if (!payload.media) {
-      throw new Error(`Selecciona un archivo multimedia para publicar en ${platformId}.`);
+    // ── 2. WhatsApp (Ruta B: Intent nativo oficial) ─────────────
+    if (platformId === 'whatsapp') {
+      const res = await publishToWhatsAppIntent(payload, (p, st) => reportProgress(p, st));
+      onUpdate(res);
+      return res;
     }
 
-    const uploadedId = await adapter.upload(payload.media, token, (progress) =>
-      reportProgress(progress, 'uploading')
-    );
+    // ── 3. YouTube Shorts (Data API v3) ────────────────────────
+    if (platformId === 'youtube') {
+      const token = await getValidYouTubeToken();
+      if (!token) {
+        throw new Error(
+          'Canal de YouTube no conectado o token expirado. Conecta tu canal mediante Google OAuth 2.0.'
+        );
+      }
 
-    reportProgress(85, 'processing');
-    const postId = await adapter.publish(payload, uploadedId, token);
+      if (!payload.media) {
+        throw new Error('Selecciona un video para subir a YouTube Shorts.');
+      }
 
-    const statusRes = await adapter.getStatus(postId, token);
-    const finalResult: PlatformPublishResult = {
-      platformId,
-      status: statusRes.status === 'error' ? 'error' : 'success',
-      progress: statusRes.status === 'error' ? 0 : 100,
-      postUrl: statusRes.postUrl,
-      postId,
-      errorMessage: statusRes.errorMessage,
-    };
+      reportProgress(15, 'uploading');
+      const adapter = new YouTubeAdapter();
 
-    onUpdate(finalResult);
-    return finalResult;
+      const uploadedId = await adapter.upload(payload.media, token, (p) =>
+        reportProgress(p, 'uploading')
+      );
+
+      reportProgress(85, 'processing');
+      const postId = await adapter.publish(payload, uploadedId, token);
+
+      const statusRes = await adapter.getStatus(postId, token);
+      const finalResult: PlatformPublishResult = {
+        platformId: 'youtube',
+        status: statusRes.status === 'error' ? 'error' : 'success',
+        progress: statusRes.status === 'error' ? 0 : 100,
+        postUrl: statusRes.postUrl || `https://youtube.com/shorts/${postId}`,
+        postId,
+        errorMessage: statusRes.errorMessage,
+      };
+
+      onUpdate(finalResult);
+      return finalResult;
+    }
+
+    // ── 4. Meta: Facebook Pages & Instagram Business ───────────
+    if (platformId === 'facebook' || platformId === 'instagram') {
+      const tokenObj = await getToken(platformId);
+      if (!tokenObj?.accessToken) {
+        throw new Error(
+          `Cuenta de ${platformId === 'facebook' ? 'Facebook' : 'Instagram'} no conectada. Conecta tu cuenta oficial de Meta.`
+        );
+      }
+
+      if (!payload.media) {
+        throw new Error(`Selecciona un archivo multimedia para publicar en ${platformId}.`);
+      }
+
+      const accountId = tokenObj.userId || 'me';
+      const adapter = createMetaAdapter(platformId, accountId);
+
+      reportProgress(15, 'uploading');
+      const uploadedId = await adapter.upload(payload.media, tokenObj.accessToken, (p) =>
+        reportProgress(p, 'uploading')
+      );
+
+      reportProgress(85, 'processing');
+      const postId = await adapter.publish(payload, uploadedId, tokenObj.accessToken);
+
+      const statusRes = await adapter.getStatus(postId, tokenObj.accessToken);
+      const finalResult: PlatformPublishResult = {
+        platformId,
+        status: statusRes.status === 'error' ? 'error' : 'success',
+        progress: statusRes.status === 'error' ? 0 : 100,
+        postUrl: statusRes.postUrl,
+        postId,
+        errorMessage: statusRes.errorMessage,
+      };
+
+      onUpdate(finalResult);
+      return finalResult;
+    }
+
+    throw new Error(`Plataforma no soportada: ${platformId}`);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Error en la publicación.';
     const errResult: PlatformPublishResult = {

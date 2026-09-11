@@ -1,3 +1,9 @@
+// ============================================================
+// src/components/auth/ConnectAccountModal.tsx
+// Modal de autenticación oficial y vinculación inteligente
+// Soporta Meta (FB/IG), YouTube (Google), TikTok API v2 y WhatsApp
+// ============================================================
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -23,16 +29,15 @@ import {
   CloseCircleSvg,
   CheckmarkCircleSvg,
   AlertCircleSvg,
-  PersonOutlineSvg,
   RefreshSvg,
 } from '../ui/SocialIcons';
-import {
-  initiateTikTokOAuth,
-  disconnectTikTok,
-} from '../../services/tiktokAuthService';
-import { saveToken, removeToken } from '../../auth/tokenManager';
+import { initiateTikTokOAuth, disconnectTikTok } from '../../services/tiktokAuthService';
+import { initiateMetaOAuth, disconnectMeta, getLastMetaAccounts } from '../../services/metaAuthService';
+import { initiateYouTubeOAuth, disconnectYouTube, getLastYouTubeAccount } from '../../services/youtubeAuthService';
+import { saveWhatsAppNumber, disconnectWhatsApp, getStoredWhatsAppNumber } from '../../services/whatsappService';
+import { getToken } from '../../auth/tokenManager';
 
-// ── Paleta ─────────────────────────────────────────────────────
+// ── Paleta Espacial Alquimia ──────────────────────────────────
 const C = {
   bg: '#080C14',
   bgCard: 'rgba(8, 18, 32, 0.97)',
@@ -49,79 +54,107 @@ const C = {
   redBg: 'rgba(255,91,91,0.1)',
 };
 
-// ── Config por plataforma ──────────────────────────────────────
-const PLATFORM_META: Record<PlatformId, {
-  name: string;
-  SvgIcon: React.ComponentType<{ size?: number }>;
-  color: string;
-  placeholder: string;
-  hint: string;
-}> = {
+// ── Metadatos por plataforma ──────────────────────────────────
+const PLATFORM_META: Record<
+  PlatformId,
+  {
+    name: string;
+    SvgIcon: React.ComponentType<{ size?: number }>;
+    color: string;
+    description: string;
+  }
+> = {
   tiktok: {
     name: 'TikTok',
     SvgIcon: TikTokSvg,
     color: '#00F2FE',
-    placeholder: '@tu_usuario_tiktok',
-    hint: 'Conexión oficial directa mediante OAuth 2.0 PKCE',
+    description: 'OAuth 2.0 PKCE con TikTok Content Posting API v2.',
   },
   instagram: {
     name: 'Instagram Reels',
     SvgIcon: InstagramSvg,
     color: '#E1306C',
-    placeholder: '@tu_cuenta_instagram',
-    hint: 'Ingresa tu usuario o nombre de cuenta',
+    description: 'Meta Graph API v19 para cuentas de Instagram Business.',
+  },
+  facebook: {
+    name: 'Facebook Pages',
+    SvgIcon: FacebookSvg,
+    color: '#1877F2',
+    description: 'Meta Graph API v19 con tokens de Página permanentes.',
   },
   youtube: {
     name: 'YouTube Shorts',
     SvgIcon: YouTubeSvg,
     color: '#FF0000',
-    placeholder: '@tu_canal_youtube',
-    hint: 'Ingresa el nombre de tu canal de YouTube',
+    description: 'Google OAuth 2.0 con YouTube Data API v3 y subida reanudable.',
   },
   whatsapp: {
     name: 'WhatsApp Business',
     SvgIcon: WhatsAppSvg,
     color: '#25D366',
-    placeholder: '+1 (XXX) XXX-XXXX',
-    hint: 'Número de tu cuenta WhatsApp Business',
-  },
-  facebook: {
-    name: 'Facebook',
-    SvgIcon: FacebookSvg,
-    color: '#1877F2',
-    placeholder: '@tu_pagina_facebook',
-    hint: 'Nombre de tu página o perfil de Facebook',
+    description: 'Envío transparente mediante Intent oficial en tu dispositivo.',
   },
 };
 
-// ── Props ──────────────────────────────────────────────────────
 interface Props {
   platformId: PlatformId | null;
   onClose: () => void;
 }
 
 export function ConnectAccountModal({ platformId, onClose }: Props) {
-  const { linkedAccounts, linkAccount, unlinkAccount, platformHandles } = useAppStore();
-  const [username, setUsername] = useState('');
+  const { linkedAccounts, platformHandles } = useAppStore();
   const [loading, setLoading] = useState(false);
   const [loadingMode, setLoadingMode] = useState<'normal' | 'switch'>('normal');
   const [step, setStep] = useState<'idle' | 'connecting' | 'success'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (platformId) {
-      setUsername(platformHandles[platformId] || '');
-      setStep('idle');
-      setErrorMessage(null);
-    }
-  }, [platformId, platformHandles]);
+  // Memoria de última cuenta usada
+  const [lastAccount, setLastAccount] = useState<string | null>(null);
 
-  // Escuchar mensaje de popup OAuth en Web
+  // Input exclusivo para WhatsApp
+  const [waInput, setWaInput] = useState('');
+
+  useEffect(() => {
+    if (!platformId) return;
+
+    setStep('idle');
+    setErrorMessage(null);
+    setLoading(false);
+
+    // Cargar última cuenta usada en este dispositivo
+    async function loadLastAccount() {
+      if (platformId === 'tiktok') {
+        const tk = await getToken('tiktok');
+        setLastAccount(tk?.displayName || null);
+      } else if (platformId === 'facebook' || platformId === 'instagram') {
+        const metaAccs = await getLastMetaAccounts();
+        const found = platformId === 'facebook' ? metaAccs.facebook : metaAccs.instagram;
+        setLastAccount(found || null);
+      } else if (platformId === 'youtube') {
+        const yt = await getLastYouTubeAccount();
+        setLastAccount(yt || null);
+      } else if (platformId === 'whatsapp') {
+        const num = await getStoredWhatsAppNumber();
+        setWaInput(num);
+        setLastAccount(num || null);
+      }
+    }
+
+    loadLastAccount();
+  }, [platformId]);
+
+  // Escuchar mensajes de popup OAuth en Web
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'TIKTOK_AUTH_SUCCESS') {
+      const type = event.data?.type;
+
+      if (
+        type === 'TIKTOK_AUTH_SUCCESS' ||
+        type === 'META_AUTH_SUCCESS' ||
+        type === 'YOUTUBE_AUTH_SUCCESS'
+      ) {
         setErrorMessage(null);
         setStep('success');
         setLoading(false);
@@ -129,10 +162,15 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
           onClose();
           setStep('idle');
         }, 1200);
-      } else if (event.data?.type === 'TIKTOK_AUTH_ERROR') {
+      } else if (
+        type === 'TIKTOK_AUTH_ERROR' ||
+        type === 'META_AUTH_ERROR' ||
+        type === 'YOUTUBE_AUTH_ERROR'
+      ) {
         setLoading(false);
         setStep('idle');
-        const desc = event.data?.description || event.data?.error || 'No se completó la autorización de TikTok.';
+        const desc =
+          event.data?.description || event.data?.error || 'No se completó la autorización oficial.';
         setErrorMessage(desc);
       }
     };
@@ -145,79 +183,68 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
 
   const meta = PLATFORM_META[platformId];
   const isLinked = linkedAccounts.has(platformId);
-  const platformName = meta.name;
+  const currentHandle = platformHandles[platformId]?.trim();
 
-  // Conexión para TikTok (OAuth 2.0 Oficial) o plataformas estándar
+  // Iniciar conexión OAuth según plataforma
   const handleConnect = async (options?: { forceLogin?: boolean }) => {
     setErrorMessage(null);
-
-    if (platformId === 'tiktok') {
-      try {
-        setLoading(true);
-        setLoadingMode(options?.forceLogin ? 'switch' : 'normal');
-        setStep('connecting');
-
-        await initiateTikTokOAuth({ forceLogin: options?.forceLogin });
-
-        if (Platform.OS !== 'web') {
-          setStep('success');
-          setLoading(false);
-          setTimeout(() => {
-            onClose();
-            setStep('idle');
-          }, 1200);
-        }
-      } catch (err: unknown) {
-        setLoading(false);
-        setStep('idle');
-        const msg = err instanceof Error ? err.message : 'Error al iniciar conexión con TikTok.';
-        setErrorMessage(msg);
-      }
-      return;
-    }
-
-    // Otras plataformas (Reels, YouTube, WhatsApp, Facebook)
-    const realHandle = username.trim();
     setLoading(true);
-    setStep('connecting');
+    setLoadingMode(options?.forceLogin ? 'switch' : 'normal');
 
-    await saveToken(platformId, {
-      accessToken: `token_${platformId}_${Date.now()}`,
-      displayName: realHandle,
-    });
-    linkAccount(platformId, realHandle);
+    try {
+      if (platformId === 'tiktok') {
+        await initiateTikTokOAuth({ forceLogin: options?.forceLogin });
+      } else if (platformId === 'facebook' || platformId === 'instagram') {
+        await initiateMetaOAuth({ forceLogin: options?.forceLogin });
+      } else if (platformId === 'youtube') {
+        await initiateYouTubeOAuth({ forceLogin: options?.forceLogin });
+      } else if (platformId === 'whatsapp') {
+        if (!waInput.trim()) {
+          throw new Error('Por favor ingresa un número de WhatsApp válido.');
+        }
+        await saveWhatsAppNumber(waInput);
+        setStep('success');
+        setLoading(false);
+        setTimeout(() => {
+          onClose();
+          setStep('idle');
+        }, 1000);
+        return;
+      }
 
-    setStep('success');
-    setLoading(false);
-
-    setTimeout(() => {
-      onClose();
+      if (Platform.OS !== 'web') {
+        setStep('success');
+        setLoading(false);
+        setTimeout(() => {
+          onClose();
+          setStep('idle');
+        }, 1200);
+      }
+    } catch (err: unknown) {
+      setLoading(false);
       setStep('idle');
-    }, 1000);
+      const msg = err instanceof Error ? err.message : 'Error al conectar con la plataforma.';
+      setErrorMessage(msg);
+    }
   };
 
   const handleDisconnect = async () => {
-    if (platformId === 'tiktok') {
-      try {
-        setLoading(true);
+    setLoading(true);
+    try {
+      if (platformId === 'tiktok') {
         await disconnectTikTok();
-      } catch {
-        await removeToken('tiktok');
-        unlinkAccount('tiktok');
-      } finally {
-        setLoading(false);
-        onClose();
-        setStep('idle');
-        setUsername('');
+      } else if (platformId === 'facebook' || platformId === 'instagram') {
+        await disconnectMeta();
+      } else if (platformId === 'youtube') {
+        await disconnectYouTube();
+      } else if (platformId === 'whatsapp') {
+        await disconnectWhatsApp();
       }
-      return;
+    } finally {
+      setLoading(false);
+      onClose();
+      setStep('idle');
     }
-
-    await removeToken(platformId);
-    unlinkAccount(platformId);
-    onClose();
-    setStep('idle');
-    setUsername('');
   };
 
   const handleClose = () => {
@@ -236,41 +263,50 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
         >
           <View style={s.overlay}>
             <View style={s.card}>
+              {/* TechCorners */}
+              <View style={s.tlCorner} />
+              <View style={s.trCorner} />
+              <View style={s.blCorner} />
+              <View style={s.brCorner} />
 
-              {/* ── TechCorners ── */}
-              <View style={s.tlCorner} /><View style={s.trCorner} />
-              <View style={s.blCorner} /><View style={s.brCorner} />
-
-              {/* ── Header ── */}
+              {/* Header */}
               <View style={s.header}>
-                <View style={[s.iconWrap, { backgroundColor: meta.color + '22', borderColor: meta.color + '55' }]}>
-                  <meta.SvgIcon size={24} />
+                <View
+                  style={[
+                    s.iconWrap,
+                    { backgroundColor: meta.color + '22', borderColor: meta.color + '55' },
+                  ]}
+                >
+                  <meta.SvgIcon size={26} />
                 </View>
                 <View style={s.headerText}>
-                  <Text style={s.title}>Vincular cuenta</Text>
-                  <Text style={[s.subtitle, { color: meta.color }]}>{platformName}</Text>
+                  <Text style={s.title}>Vincular cuenta oficial</Text>
+                  <Text style={[s.subtitle, { color: meta.color }]}>{meta.name}</Text>
                 </View>
                 <TouchableOpacity onPress={handleClose} style={s.closeBtn} disabled={loading}>
                   <CloseCircleSvg size={22} />
                 </TouchableOpacity>
               </View>
 
-              {/* ── Estado: Conectada ── */}
+              {/* ── Estado 1: Conectada ── */}
               {isLinked && step !== 'success' ? (
                 <View style={s.connectedState}>
                   <View style={s.connectedBadge}>
                     <CheckmarkCircleSvg size={18} color={C.green} />
                     <Text style={s.connectedBadgeText}>Conectada</Text>
-                    {Boolean(platformHandles[platformId]) && (
-                      <Text style={s.connectedUserText}>
-                        {platformHandles[platformId]}
-                      </Text>
+                    {Boolean(currentHandle) && (
+                      <Text style={s.connectedUserText}>{currentHandle}</Text>
                     )}
                   </View>
                   <Text style={s.connectedSub}>
-                    Tu cuenta oficial de {platformName} está vinculada y lista para publicar videos automáticamente desde Alquimia.
+                    Tu cuenta oficial de {meta.name} está vinculada con permisos activos y lista
+                    para publicar desde Alquimia.
                   </Text>
-                  <TouchableOpacity onPress={handleDisconnect} style={s.disconnectBtn} disabled={loading}>
+                  <TouchableOpacity
+                    onPress={handleDisconnect}
+                    style={s.disconnectBtn}
+                    disabled={loading}
+                  >
                     {loading ? (
                       <ActivityIndicator size="small" color={C.textMuted} />
                     ) : (
@@ -279,143 +315,262 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                   </TouchableOpacity>
                 </View>
               ) : step === 'success' ? (
-                /* ── Estado: Éxito ── */
+                /* ── Estado 2: Éxito ── */
                 <View style={s.successState}>
                   <View style={s.successIcon}>
                     <CheckmarkCircleSvg size={48} color={C.green} />
                   </View>
-                  <Text style={s.successTitle}>¡Cuenta conectada!</Text>
+                  <Text style={s.successTitle}>¡Cuenta vinculada con éxito!</Text>
                   <Text style={s.successSub}>
-                    {platformName} ha sido vinculada y activada con éxito en Alquimia.
+                    {meta.name} ha sido verificada y activada en tu consola de Alquimia.
                   </Text>
                 </View>
-              ) : platformId === 'tiktok' ? (
-                /* ── Estado: Formulario Oficial TikTok ── */
+              ) : (
+                /* ── Estado 3: No vinculada (Formularios Oficiales) ── */
                 <>
                   <View style={s.statusBadge}>
                     <View style={s.statusDot} />
                     <Text style={s.statusText}>No vinculada</Text>
                   </View>
 
-                  <Text style={s.tiktokExplainer}>
-                    Conecta tu cuenta oficial de TikTok mediante OAuth 2.0 para publicar videos directamente. Si ya tienes sesión abierta en tu navegador, la vinculación es inmediata.
-                  </Text>
+                  {/* Tarjeta de Memoria: Última cuenta usada */}
+                  {Boolean(lastAccount) && (
+                    <View style={s.memoryCard}>
+                      <Text style={s.memoryTitle}>Última cuenta usada en este dispositivo:</Text>
+                      <Text style={s.memoryUser}>{lastAccount}</Text>
+                      <TouchableOpacity
+                        onPress={() => handleConnect({ forceLogin: false })}
+                        disabled={loading}
+                        style={s.memoryBtn}
+                      >
+                        <Text style={s.memoryBtnText}>
+                          {loading && loadingMode === 'normal'
+                            ? 'Reconectando...'
+                            : `Conectar con ${lastAccount}`}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
-                  {/* Mensaje de Error si la autorización falló o fue cancelada */}
+                  {/* Mensaje de Error */}
                   {errorMessage && (
                     <View style={s.errorBox}>
                       <AlertCircleSvg size={18} color={C.red} />
                       <View style={s.errorTextWrap}>
-                        <Text style={s.errorTitle}>Error de autorización</Text>
+                        <Text style={s.errorTitle}>Error de conexión</Text>
                         <Text style={s.errorBody}>{errorMessage}</Text>
                       </View>
                     </View>
                   )}
 
-                  {/* Botón Principal: Conectar con TikTok */}
-                  <TouchableOpacity
-                    onPress={() => handleConnect({ forceLogin: false })}
-                    disabled={loading}
-                    style={s.oauthBtn}
-                    activeOpacity={0.85}
-                  >
-                    <LinearGradient
-                      colors={['#00F2FE', '#4FACFE']}
-                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                      style={s.oauthGradient}
-                    >
-                      <View style={s.oauthInnerTikTok}>
-                        {loading && loadingMode === 'normal' ? (
-                          <>
-                            <ActivityIndicator size="small" color={C.white} />
-                            <Text style={s.oauthTextTikTok}>Abriendo login oficial de TikTok...</Text>
-                          </>
-                        ) : (
-                          <>
-                            <TikTokSvg size={20} />
-                            <Text style={s.oauthTextTikTok}>Conectar con TikTok (OAuth 2.0)</Text>
-                          </>
-                        )}
+                  {/* Formulario según plataforma */}
+                  {platformId === 'tiktok' && (
+                    <>
+                      <Text style={s.explainer}>
+                        Conecta tu cuenta de TikTok mediante OAuth 2.0 oficial. Si ya tienes sesión
+                        abierta en tu navegador, la vinculación se realiza en segundos.
+                      </Text>
+
+                      <TouchableOpacity
+                        onPress={() => handleConnect({ forceLogin: false })}
+                        disabled={loading}
+                        style={s.oauthBtn}
+                      >
+                        <LinearGradient
+                          colors={['#00F2FE', '#4FACFE']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={s.oauthGradient}
+                        >
+                          <View style={s.oauthInner}>
+                            {loading && loadingMode === 'normal' ? (
+                              <ActivityIndicator size="small" color={C.white} />
+                            ) : (
+                              <TikTokSvg size={20} />
+                            )}
+                            <Text style={s.oauthText}>
+                              {loading && loadingMode === 'normal'
+                                ? 'Abriendo TikTok...'
+                                : 'Conectar con TikTok (OAuth 2.0)'}
+                            </Text>
+                          </View>
+                        </LinearGradient>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => handleConnect({ forceLogin: true })}
+                        disabled={loading}
+                        style={s.switchAccountBtn}
+                      >
+                        <RefreshSvg size={14} color="#00F2FE" />
+                        <Text style={s.switchAccountText}>
+                          Iniciar sesión con otra cuenta de TikTok
+                        </Text>
+                      </TouchableOpacity>
+
+                      <Text style={s.auditNotice}>
+                        ⚠️ Aviso de Auditoría: En modo Sandbox de TikTok, los videos se publicarán
+                        como privados (SELF_ONLY) y la cuenta debe estar agregada en el portal de
+                        desarrolladores.
+                      </Text>
+                    </>
+                  )}
+
+                  {(platformId === 'facebook' || platformId === 'instagram') && (
+                    <>
+                      <Text style={s.explainer}>
+                        Inicia sesión con Meta para conectar tu Página de Facebook y tu cuenta de
+                        Instagram Business asociada con permisos de publicación permanente.
+                      </Text>
+
+                      <TouchableOpacity
+                        onPress={() => handleConnect({ forceLogin: false })}
+                        disabled={loading}
+                        style={s.oauthBtn}
+                      >
+                        <LinearGradient
+                          colors={['#1877F2', '#0052CC']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={s.oauthGradient}
+                        >
+                          <View style={s.oauthInner}>
+                            {loading && loadingMode === 'normal' ? (
+                              <ActivityIndicator size="small" color={C.white} />
+                            ) : (
+                              <FacebookSvg size={20} />
+                            )}
+                            <Text style={s.oauthText}>
+                              {loading && loadingMode === 'normal'
+                                ? 'Abriendo Meta...'
+                                : 'Conectar con Meta (Facebook & Instagram)'}
+                            </Text>
+                          </View>
+                        </LinearGradient>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => handleConnect({ forceLogin: true })}
+                        disabled={loading}
+                        style={s.switchAccountBtn}
+                      >
+                        <RefreshSvg size={14} color="#1877F2" />
+                        <Text style={[s.switchAccountText, { color: '#1877F2' }]}>
+                          Iniciar sesión con otra cuenta de Meta
+                        </Text>
+                      </TouchableOpacity>
+
+                      <Text style={s.auditNotice}>
+                        🔒 Permisos requeridos: pages_show_list, pages_manage_posts,
+                        instagram_content_publish. En modo desarrollo requiere rol de evaluador en
+                        el portal de Meta.
+                      </Text>
+                    </>
+                  )}
+
+                  {platformId === 'youtube' && (
+                    <>
+                      <Text style={s.explainer}>
+                        Conecta tu canal de YouTube mediante Google OAuth 2.0 oficial para publicar
+                        Shorts y videos automáticamente.
+                      </Text>
+
+                      <TouchableOpacity
+                        onPress={() => handleConnect({ forceLogin: false })}
+                        disabled={loading}
+                        style={s.oauthBtn}
+                      >
+                        <LinearGradient
+                          colors={['#FF0000', '#CC0000']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={s.oauthGradient}
+                        >
+                          <View style={s.oauthInner}>
+                            {loading && loadingMode === 'normal' ? (
+                              <ActivityIndicator size="small" color={C.white} />
+                            ) : (
+                              <YouTubeSvg size={20} />
+                            )}
+                            <Text style={s.oauthText}>
+                              {loading && loadingMode === 'normal'
+                                ? 'Abriendo Google...'
+                                : 'Conectar canal de YouTube (Google)'}
+                            </Text>
+                          </View>
+                        </LinearGradient>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => handleConnect({ forceLogin: true })}
+                        disabled={loading}
+                        style={s.switchAccountBtn}
+                      >
+                        <RefreshSvg size={14} color="#FF4444" />
+                        <Text style={[s.switchAccountText, { color: '#FF4444' }]}>
+                          Iniciar sesión con otra cuenta de Google
+                        </Text>
+                      </TouchableOpacity>
+
+                      <Text style={s.auditNotice}>
+                        🔒 Scope restringido: youtube.upload. En fase de pruebas de Google Cloud, tu
+                        correo debe estar registrado en la lista de 'Usuarios de prueba' de la
+                        pantalla de consentimiento.
+                      </Text>
+                    </>
+                  )}
+
+                  {platformId === 'whatsapp' && (
+                    <>
+                      <Text style={s.explainer}>
+                        Alquimia utiliza el protocolo oficial de Intent de WhatsApp en tu
+                        dispositivo (Ruta B). Abre la aplicación lista con tu contenido para que
+                        confirmes el envío manualmente con un solo toque.
+                      </Text>
+
+                      <View style={s.waInputWrap}>
+                        <Text style={s.waLabel}>Número o contacto predeterminado (opcional):</Text>
+                        <TextInput
+                          value={waInput}
+                          onChangeText={setWaInput}
+                          placeholder="+1 (829) 123-4567 o déjalo vacío para elegir chat"
+                          placeholderTextColor={C.textMuted}
+                          style={s.input}
+                          keyboardType="phone-pad"
+                          editable={!loading}
+                        />
                       </View>
-                    </LinearGradient>
-                  </TouchableOpacity>
 
-                  {/* Enlace/Botón Visible: Iniciar sesión con otra cuenta de TikTok (prompt=login) */}
-                  <TouchableOpacity
-                    onPress={() => handleConnect({ forceLogin: true })}
-                    disabled={loading}
-                    style={s.switchAccountBtn}
-                    activeOpacity={0.7}
-                  >
-                    {loading && loadingMode === 'switch' ? (
-                      <ActivityIndicator size="small" color="#00F2FE" />
-                    ) : (
-                      <RefreshSvg size={15} color="#00F2FE" />
-                    )}
-                    <Text style={s.switchAccountText}>
-                      Iniciar sesión con otra cuenta de TikTok
-                    </Text>
-                  </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleConnect()}
+                        disabled={loading}
+                        style={s.oauthBtn}
+                      >
+                        <LinearGradient
+                          colors={['#25D366', '#128C7E']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={s.oauthGradient}
+                        >
+                          <View style={s.oauthInner}>
+                            {loading ? (
+                              <ActivityIndicator size="small" color={C.white} />
+                            ) : (
+                              <WhatsAppSvg size={20} />
+                            )}
+                            <Text style={s.oauthText}>
+                              {loading ? 'Guardando...' : 'Activar WhatsApp en Alquimia'}
+                            </Text>
+                          </View>
+                        </LinearGradient>
+                      </TouchableOpacity>
 
-                  <Text style={s.disclaimer}>
-                    🔒 Conexión oficial mediante TikTok Content Posting API v2. Credenciales y tokens resguardados de forma segura en el servidor de Alquimia.
-                  </Text>
-                </>
-              ) : (
-                /* ── Estado: Formulario Otras Plataformas ── */
-                <>
-                  <View style={s.statusBadge}>
-                    <View style={s.statusDot} />
-                    <Text style={s.statusText}>No vinculada</Text>
-                  </View>
-
-                  <View style={s.fieldGroup}>
-                    <Text style={s.fieldLabel}>{meta.hint}</Text>
-                    <View style={[s.inputWrap, username.length > 0 && s.inputWrapActive]}>
-                      <PersonOutlineSvg size={16} color={C.neon} />
-                      <TextInput
-                        value={username}
-                        onChangeText={setUsername}
-                        placeholder={meta.placeholder}
-                        placeholderTextColor={C.textMuted}
-                        style={s.input}
-                        autoCorrect={false}
-                        autoCapitalize="none"
-                        editable={!loading}
-                      />
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    onPress={() => handleConnect()}
-                    disabled={loading || !username.trim()}
-                    style={[s.oauthBtn, (!username.trim() || loading) && s.oauthBtnDisabled]}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={
-                        !username.trim() || loading
-                          ? ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.03)']
-                          : [C.neonBorder, 'rgba(0,255,212,0.25)', C.neonBorder]
-                      }
-                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                      style={s.oauthGradient}
-                    >
-                      <View style={s.oauthInner}>
-                        {loading ? (
-                          <>
-                            <ActivityIndicator size="small" color={C.neon} />
-                            <Text style={s.oauthText}>Autorizando...</Text>
-                          </>
-                        ) : (
-                          <>
-                            <CheckmarkCircleSvg size={16} color={C.neon} />
-                            <Text style={s.oauthText}>Conectar cuenta</Text>
-                          </>
-                        )}
-                      </View>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                      <Text style={s.disclaimer}>
+                        ℹ️ Transparencia total: La app reportará 'Acción requerida' para que
+                        confirmes el envío en la app oficial de WhatsApp, sin reportes falsos.
+                      </Text>
+                    </>
+                  )}
                 </>
               )}
             </View>
@@ -426,14 +581,13 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
   );
 }
 
-// ── Estilos ─────────────────────────────────────────────────────
-const CORNER = 14;
+const CORNER = 12;
 const s = StyleSheet.create({
   kav: { flex: 1 },
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(8,12,20,0.55)',
+    backgroundColor: 'rgba(8,12,20,0.65)',
   },
   card: {
     backgroundColor: C.bgCard,
@@ -445,184 +599,289 @@ const s = StyleSheet.create({
     padding: 24,
     paddingBottom: 36,
     position: 'relative',
-    shadowColor: C.neon,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 20,
-    width: '100%',
-    maxWidth: 460,
-    alignSelf: 'center',
   },
-  tlCorner: { position: 'absolute', top: 0, left: 0, width: CORNER, height: CORNER, borderTopWidth: 1.5, borderLeftWidth: 1.5, borderColor: C.neon, borderTopLeftRadius: 20 },
-  trCorner: { position: 'absolute', top: 0, right: 0, width: CORNER, height: CORNER, borderTopWidth: 1.5, borderRightWidth: 1.5, borderColor: C.neon, borderTopRightRadius: 20 },
-  blCorner: { position: 'absolute', bottom: 0, left: 0, width: CORNER, height: CORNER, borderBottomWidth: 1.5, borderLeftWidth: 1.5, borderColor: 'rgba(0,255,212,0.2)' },
-  brCorner: { position: 'absolute', bottom: 0, right: 0, width: CORNER, height: CORNER, borderBottomWidth: 1.5, borderRightWidth: 1.5, borderColor: 'rgba(0,255,212,0.2)' },
-  // Header
+  tlCorner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: CORNER,
+    height: CORNER,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: C.neon,
+  },
+  trCorner: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: CORNER,
+    height: CORNER,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderColor: C.neon,
+  },
+  blCorner: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: CORNER,
+    height: CORNER,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: C.neon,
+  },
+  brCorner: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: CORNER,
+    height: CORNER,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderColor: C.neon,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    gap: 12,
+    marginBottom: 16,
   },
   iconWrap: {
     width: 44,
     height: 44,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   headerText: { flex: 1 },
-  title: { color: C.white, fontSize: 16, fontWeight: '700' },
-  subtitle: { fontSize: 13, fontWeight: '600', marginTop: 1 },
+  title: {
+    color: C.white,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  subtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
+  },
   closeBtn: { padding: 4 },
-  // Status badge (no vinculada)
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 14,
-    backgroundColor: 'rgba(255,100,100,0.08)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,100,100,0.25)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
     alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 14,
   },
   statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#FF5B5B',
+    marginRight: 6,
   },
-  statusText: { color: '#FF8080', fontSize: 12, fontWeight: '600' },
-  // Input
-  fieldGroup: { marginBottom: 16, gap: 8 },
-  fieldLabel: { color: C.textMuted, fontSize: 12, letterSpacing: 0.3 },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,255,212,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(0,255,212,0.2)',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
+  statusText: {
+    color: C.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
   },
-  inputWrapActive: { borderColor: C.neonBorder },
-  input: { flex: 1, color: C.white, fontSize: 14 },
-  // OAuth Button
-  oauthBtn: { borderRadius: 8, overflow: 'hidden' },
-  oauthBtnDisabled: { opacity: 0.45 },
-  oauthGradient: { padding: 1.5, borderRadius: 8 },
-  oauthInner: {
-    backgroundColor: 'rgba(8,18,32,0.96)',
-    borderRadius: 7,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+  explainer: {
+    color: C.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 16,
   },
-  oauthText: { color: C.white, fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
+  auditNotice: {
+    color: C.goldText,
+    fontSize: 11,
+    lineHeight: 16,
+    backgroundColor: 'rgba(245,197,24,0.08)',
+    borderLeftWidth: 2,
+    borderLeftColor: C.gold,
+    padding: 10,
+    borderRadius: 6,
+    marginTop: 14,
+  },
   disclaimer: {
     color: C.textMuted,
-    fontSize: 10.5,
-    textAlign: 'center',
-    marginTop: 14,
+    fontSize: 11,
     lineHeight: 15,
+    marginTop: 12,
   },
-  // Connected state
-  connectedState: { gap: 12, paddingBottom: 6 },
-  connectedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: C.greenBg,
-    borderWidth: 0.5,
-    borderColor: 'rgba(0,255,127,0.3)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+  oauthBtn: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 6,
   },
-  connectedBadgeText: { color: C.green, fontWeight: '800', fontSize: 13, letterSpacing: 0.5 },
-  connectedUserText: { color: C.white, fontWeight: '700', fontSize: 14, marginLeft: 4 },
-  connectedSub: { color: C.textMuted, fontSize: 13, lineHeight: 18 },
-  disconnectBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    paddingVertical: 6,
-  },
-  disconnectText: { color: '#FF8080', fontSize: 12, textDecorationLine: 'underline' },
-  // Success state
-  successState: { alignItems: 'center', paddingVertical: 16, gap: 10 },
-  successIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(0,255,127,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  successTitle: { color: C.green, fontSize: 20, fontWeight: '800', letterSpacing: 0.5 },
-  successSub: { color: C.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 18 },
-  // TikTok specific
-  tiktokExplainer: {
-    color: C.textMuted,
-    fontSize: 12.5,
-    lineHeight: 18,
-    marginBottom: 14,
-  },
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: C.redBg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,91,91,0.35)',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 14,
-  },
-  errorTextWrap: { flex: 1 },
-  errorTitle: { color: C.red, fontSize: 12, fontWeight: '700', marginBottom: 2 },
-  errorBody: { color: '#FFB0B0', fontSize: 11.5, lineHeight: 16 },
-  oauthInnerTikTok: {
-    backgroundColor: 'rgba(8, 18, 32, 0.95)',
-    borderRadius: 7,
+  oauthGradient: {
     paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  oauthInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
   },
-  oauthTextTikTok: {
+  oauthText: {
     color: C.white,
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.3,
   },
   switchAccountBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     marginTop: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 242, 254, 0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 242, 254, 0.25)',
+    paddingVertical: 6,
+    gap: 6,
   },
   switchAccountText: {
     color: '#00F2FE',
-    fontSize: 12.5,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  memoryCard: {
+    backgroundColor: 'rgba(0,255,212,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,255,212,0.2)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  memoryTitle: {
+    color: C.neon,
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  memoryUser: {
+    color: C.white,
+    fontSize: 15,
     fontWeight: '700',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  memoryBtn: {
+    backgroundColor: 'rgba(0,255,212,0.15)',
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  memoryBtnText: {
+    color: C.neon,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  errorBox: {
+    flexDirection: 'row',
+    backgroundColor: C.redBg,
+    borderColor: C.red,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+    alignItems: 'center',
+    gap: 10,
+  },
+  errorTextWrap: { flex: 1 },
+  errorTitle: {
+    color: C.red,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  errorBody: {
+    color: '#FFA8A8',
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  connectedState: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  connectedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.greenBg,
+    borderColor: C.green,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 12,
+    gap: 8,
+  },
+  connectedBadgeText: {
+    color: C.green,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  connectedUserText: {
+    color: C.white,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  connectedSub: {
+    color: C.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  disconnectBtn: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,91,91,0.4)',
+    backgroundColor: 'rgba(255,91,91,0.08)',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    width: '100%',
+  },
+  disconnectText: {
+    color: C.red,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  successState: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  successIcon: { marginBottom: 12 },
+  successTitle: {
+    color: C.white,
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  successSub: {
+    color: C.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  waInputWrap: {
+    marginBottom: 14,
+  },
+  waLabel: {
+    color: C.textMuted,
+    fontSize: 12,
+    marginBottom: 6,
+  },
+  input: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 10,
+    color: C.white,
+    fontSize: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
 });

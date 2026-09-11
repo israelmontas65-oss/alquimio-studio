@@ -1,16 +1,22 @@
 // ============================================================
 // src/components/publish/PublishModal.tsx
-// Modal futurista de progreso — barras individuales por red
+// Modal futurista de progreso con iconografía SVG 100% pura
+// Manejo honesto de estado: action_required en WhatsApp y aviso Sandbox
 // ============================================================
 
 import React from 'react';
 import {
-  View, Text, StyleSheet, Modal, TouchableOpacity,
-  ActivityIndicator, ScrollView, Linking,
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  TouchableOpacity,
+  ActivityIndicator,
+  ScrollView,
+  Linking,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
 import { PLATFORMS } from '../../constants/platforms';
 import type { PlatformPublishResult } from '../../types/platform.types';
@@ -21,6 +27,10 @@ import {
   WhatsAppSvg,
   FacebookSvg,
   CloseCircleSvg,
+  CheckmarkCircleSvg,
+  AlertCircleSvg,
+  TimeOutlineSvg,
+  OpenOutlineSvg,
 } from '../ui/SocialIcons';
 
 const PLATFORM_SVGS: Record<string, React.ComponentType<{ size?: number }>> = {
@@ -38,6 +48,7 @@ const C = {
   neonDim: 'rgba(0,255,212,0.15)',
   neonBorder: 'rgba(0,255,212,0.55)',
   gold: '#F5C518',
+  goldDim: 'rgba(245,197,24,0.12)',
   goldText: '#FFD966',
   textMuted: 'rgba(255,255,255,0.40)',
   white: '#FFFFFF',
@@ -47,47 +58,65 @@ const C = {
   errorDim: 'rgba(255,76,76,0.1)',
 };
 
-// ── Icono de estado ────────────────────────────────────────────
+// ── Icono de estado SVG Puro ──────────────────────────────────
 function StatusIcon({ status }: { status: PlatformPublishResult['status'] }) {
   switch (status) {
     case 'idle':
-      return <Ionicons name="time-outline" size={18} color={C.textMuted} />;
+      return <TimeOutlineSvg size={18} color={C.textMuted} />;
     case 'uploading':
       return <ActivityIndicator size="small" color={C.neon} />;
     case 'processing':
       return <ActivityIndicator size="small" color={C.gold} />;
     case 'success':
-      return <Ionicons name="checkmark-circle" size={18} color={C.green} />;
+      return <CheckmarkCircleSvg size={18} color={C.green} />;
+    case 'action_required':
+      return <AlertCircleSvg size={18} color={C.gold} />;
     case 'error':
-      return <Ionicons name="close-circle" size={18} color={C.error} />;
+      return <CloseCircleSvg size={18} color={C.error} />;
     default:
-      return <Ionicons name="time-outline" size={18} color={C.textMuted} />;
+      return <TimeOutlineSvg size={18} color={C.textMuted} />;
   }
 }
 
 // ── Texto de estado ────────────────────────────────────────────
 function statusText(status: PlatformPublishResult['status'], progress: number): string {
   switch (status) {
-    case 'idle':      return 'En cola...';
-    case 'uploading': return `Subiendo archivo ${progress}%`;
-    case 'processing': return 'Procesando formato...';
-    case 'success':   return '✅ Publicado con éxito';
-    case 'error':     return '❌ Error en subida';
-    default:          return 'Procesando...';
+    case 'idle':
+      return 'En cola de sincronización...';
+    case 'uploading':
+      return `Subiendo archivo multimedia ${progress}%`;
+    case 'processing':
+      return 'Procesando en servidores oficiales...';
+    case 'success':
+      return '✅ Publicado y verificado con éxito';
+    case 'action_required':
+      return '⚠️ WhatsApp abierto — confirma el envío en la app';
+    case 'error':
+      return '❌ Error en la publicación';
+    default:
+      return 'Procesando...';
   }
 }
 
 // ── Fila individual de plataforma ──────────────────────────────
 function PlatformProgressRow({ result }: { result: PlatformPublishResult }) {
+  const { updatePlatformResult } = useAppStore();
   const pInfo = Object.values(PLATFORMS).find((p: any) => p.id === result.platformId) as any;
   if (!pInfo) return null;
 
   const isSuccess = result.status === 'success';
-  const isError   = result.status === 'error';
-  const isActive  = result.status === 'uploading' || result.status === 'processing';
+  const isActionReq = result.status === 'action_required';
+  const isError = result.status === 'error';
+  const isActive = result.status === 'uploading' || result.status === 'processing';
 
-  const barColor = isSuccess ? C.green : isError ? C.error : C.neon;
-  const rowBg = isSuccess ? C.greenDim : isError ? C.errorDim : C.neonDim;
+  const barColor = isSuccess ? C.green : isActionReq ? C.gold : isError ? C.error : C.neon;
+  const rowBg = isSuccess
+    ? C.greenDim
+    : isActionReq
+    ? C.goldDim
+    : isError
+    ? C.errorDim
+    : C.neonDim;
 
   const SvgIcon = PLATFORM_SVGS[result.platformId];
 
@@ -95,7 +124,7 @@ function PlatformProgressRow({ result }: { result: PlatformPublishResult }) {
     <View style={[row.wrap, { backgroundColor: rowBg }]}>
       {/* Icono Oficial SVG */}
       <View style={[row.icon, { backgroundColor: pInfo.iconColor + '22' }]}>
-        {SvgIcon ? <SvgIcon size={20} /> : <Ionicons name={pInfo.iconName} size={18} color={pInfo.iconColor} />}
+        {SvgIcon ? <SvgIcon size={20} /> : null}
       </View>
 
       {/* Contenido */}
@@ -105,37 +134,68 @@ function PlatformProgressRow({ result }: { result: PlatformPublishResult }) {
           <StatusIcon status={result.status} />
         </View>
 
-        <Text style={[
-          row.status,
-          isSuccess && { color: C.green },
-          isError   && { color: C.error },
-          isActive  && { color: C.neon },
-        ]}>
+        <Text
+          style={[
+            row.status,
+            isSuccess && { color: C.green },
+            isActionReq && { color: C.goldText },
+            isError && { color: C.error },
+            isActive && { color: C.neon },
+          ]}
+        >
           {statusText(result.status, result.progress)}
         </Text>
 
         {/* Barra de progreso individual */}
         <View style={row.barBg}>
-          <View style={[
-            row.barFill,
-            { width: `${result.progress}%`, backgroundColor: barColor },
-          ]} />
+          <View
+            style={[
+              row.barFill,
+              { width: `${result.progress}%`, backgroundColor: barColor },
+            ]}
+          />
         </View>
 
-        {/* Enlace de confirmación */}
+        {/* Enlace de confirmación oficial */}
         {isSuccess && result.postUrl && (
           <TouchableOpacity
             onPress={() => Linking.openURL(result.postUrl!)}
             style={row.linkBtn}
           >
-            <Ionicons name="open-outline" size={11} color={C.neon} />
-            <Text style={row.linkText}>Ver publicación →</Text>
+            <OpenOutlineSvg size={13} color={C.neon} />
+            <Text style={row.linkText}>Ver publicación oficial →</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Aviso de TikTok Sandbox */}
+        {isSuccess && result.isSandbox && (
+          <Text style={row.sandboxNotice}>
+            🔒 Publicado como privado (Modo Sandbox de TikTok)
+          </Text>
+        )}
+
+        {/* Botón interactivo para WhatsApp: Acción requerida */}
+        {isActionReq && (
+          <TouchableOpacity
+            onPress={() =>
+              updatePlatformResult({
+                platformId: result.platformId,
+                status: 'success',
+                progress: 100,
+              })
+            }
+            style={row.actionConfirmBtn}
+          >
+            <CheckmarkCircleSvg size={14} color={C.green} />
+            <Text style={row.actionConfirmText}>Marcar como enviado en WhatsApp</Text>
           </TouchableOpacity>
         )}
 
         {/* Mensaje de error */}
         {isError && result.errorMessage && (
-          <Text style={row.errorMsg} numberOfLines={1}>{result.errorMessage}</Text>
+          <Text style={row.errorMsg} numberOfLines={2}>
+            {result.errorMessage}
+          </Text>
         )}
       </View>
     </View>
@@ -148,23 +208,28 @@ export function PublishModal() {
 
   if (!isPublishModalVisible || !publishSession) return null;
 
-  const total      = publishSession.results.length;
-  const avgProgress = total === 0
-    ? 0
-    : publishSession.results.reduce((a, r) => a + r.progress, 0) / total;
-  const isDone     = publishSession.status === 'completed' || publishSession.status === 'partial_error';
-  const successCount = publishSession.results.filter(r => r.status === 'success').length;
-  const errorCount   = publishSession.results.filter(r => r.status === 'error').length;
+  const total = publishSession.results.length;
+  const avgProgress =
+    total === 0
+      ? 0
+      : publishSession.results.reduce((a, r) => a + r.progress, 0) / total;
+  const isDone =
+    publishSession.status === 'completed' || publishSession.status === 'partial_error';
+  const successCount = publishSession.results.filter(
+    (r) => r.status === 'success' || r.status === 'action_required'
+  ).length;
+  const errorCount = publishSession.results.filter((r) => r.status === 'error').length;
 
   return (
     <Modal visible={isPublishModalVisible} transparent animationType="slide">
       <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFill}>
         <View style={s.overlay}>
           <View style={s.card}>
-
             {/* TechCorners */}
-            <View style={s.tlCorner} /><View style={s.trCorner} />
-            <View style={s.blCorner} /><View style={s.brCorner} />
+            <View style={s.tlCorner} />
+            <View style={s.trCorner} />
+            <View style={s.blCorner} />
+            <View style={s.brCorner} />
 
             {/* ── Header ── */}
             <View style={s.header}>
@@ -172,8 +237,8 @@ export function PublishModal() {
                 <Text style={s.title}>ALQUIMIA TRANSMISOR</Text>
                 <Text style={s.subtitle}>
                   {isDone
-                    ? `${successCount}/${total} redes publicadas`
-                    : `Sincronizando ${total} redes...`}
+                    ? `${successCount}/${total} redes procesadas`
+                    : `Sincronizando ${total} redes en bloque...`}
                 </Text>
               </View>
               {isDone && (
@@ -186,12 +251,14 @@ export function PublishModal() {
             {/* ── Progreso Global ── */}
             <View style={s.globalWrap}>
               <View style={s.globalTop}>
-                <Text style={s.globalLabel}>Progreso Total</Text>
-                <Text style={[
-                  s.globalValue,
-                  isDone && successCount === total && { color: C.green },
-                  errorCount > 0 && errorCount === total && { color: C.error },
-                ]}>
+                <Text style={s.globalLabel}>Progreso de Difusión</Text>
+                <Text
+                  style={[
+                    s.globalValue,
+                    isDone && successCount === total && { color: C.green },
+                    errorCount > 0 && errorCount === total && { color: C.error },
+                  ]}
+                >
                   {Math.round(avgProgress)}%
                 </Text>
               </View>
@@ -202,7 +269,8 @@ export function PublishModal() {
                       ? [C.errorDim, C.error]
                       : [C.neonDim, C.neon]
                   }
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
                   style={[s.globalBarFill, { width: `${Math.round(avgProgress)}%` }]}
                 />
               </View>
@@ -221,21 +289,26 @@ export function PublishModal() {
 
             {/* ── Botón Finalizar ── */}
             {isDone && (
-              <TouchableOpacity onPress={resetSession} style={s.doneBtn} activeOpacity={0.85}>
+              <TouchableOpacity
+                onPress={resetSession}
+                style={s.doneBtn}
+                activeOpacity={0.85}
+              >
                 <LinearGradient
                   colors={[C.neonBorder, 'rgba(0,255,212,0.25)', C.neonBorder]}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
                   style={s.doneBtnGradient}
                 >
                   <View style={s.doneBtnInner}>
-                    <Ionicons name="checkmark-done-outline" size={18} color={C.neon} />
-                    <Text style={s.doneBtnText}>LISTO</Text>
+                    <CheckmarkCircleSvg size={18} color={C.neon} />
+                    <Text style={s.doneBtnText}>FINALIZAR</Text>
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
             )}
 
-            {/* Footer autoría */}
+            {/* Footer autoría inmutable */}
             <Text style={s.footer}>Alquimia Estudio · Israel Montás · © 2026</Text>
           </View>
         </View>
@@ -266,10 +339,31 @@ const row = StyleSheet.create({
   topLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   name: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   status: { color: 'rgba(255,255,255,0.45)', fontSize: 11, fontWeight: '500' },
-  barBg: { height: 3, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 2, overflow: 'hidden', marginTop: 4 },
+  barBg: {
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
   barFill: { height: '100%', borderRadius: 2 },
-  linkBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  linkBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
   linkText: { color: '#00FFD4', fontSize: 11, fontWeight: '600' },
+  sandboxNotice: { color: '#FFD966', fontSize: 10.5, marginTop: 3 },
+  actionConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,255,127,0.12)',
+    borderWidth: 1,
+    borderColor: '#00FF7F',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
+  actionConfirmText: { color: '#00FF7F', fontSize: 11, fontWeight: '700' },
   errorMsg: { color: '#FF8080', fontSize: 11, marginTop: 3 },
 });
 
@@ -300,10 +394,48 @@ const s = StyleSheet.create({
     maxWidth: 500,
     alignSelf: 'center',
   },
-  tlCorner: { position: 'absolute', top: 0, left: 0, width: CORNER, height: CORNER, borderTopWidth: 1.5, borderLeftWidth: 1.5, borderColor: C.neon, borderTopLeftRadius: 20 },
-  trCorner: { position: 'absolute', top: 0, right: 0, width: CORNER, height: CORNER, borderTopWidth: 1.5, borderRightWidth: 1.5, borderColor: C.neon, borderTopRightRadius: 20 },
-  blCorner: { position: 'absolute', bottom: 0, left: 0, width: CORNER, height: CORNER, borderBottomWidth: 1.5, borderLeftWidth: 1.5, borderColor: 'rgba(0,255,212,0.15)' },
-  brCorner: { position: 'absolute', bottom: 0, right: 0, width: CORNER, height: CORNER, borderBottomWidth: 1.5, borderRightWidth: 1.5, borderColor: 'rgba(0,255,212,0.15)' },
+  tlCorner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: CORNER,
+    height: CORNER,
+    borderTopWidth: 1.5,
+    borderLeftWidth: 1.5,
+    borderColor: C.neon,
+    borderTopLeftRadius: 20,
+  },
+  trCorner: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: CORNER,
+    height: CORNER,
+    borderTopWidth: 1.5,
+    borderRightWidth: 1.5,
+    borderColor: C.neon,
+    borderTopRightRadius: 20,
+  },
+  blCorner: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: CORNER,
+    height: CORNER,
+    borderBottomWidth: 1.5,
+    borderLeftWidth: 1.5,
+    borderColor: 'rgba(0,255,212,0.15)',
+  },
+  brCorner: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: CORNER,
+    height: CORNER,
+    borderBottomWidth: 1.5,
+    borderRightWidth: 1.5,
+    borderColor: 'rgba(0,255,212,0.15)',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -318,7 +450,12 @@ const s = StyleSheet.create({
   globalTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   globalLabel: { color: C.white, fontSize: 13, fontWeight: '600' },
   globalValue: { color: C.neon, fontSize: 13, fontWeight: '800' },
-  globalBarBg: { height: 7, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 4, overflow: 'hidden' },
+  globalBarBg: {
+    height: 7,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
   globalBarFill: { height: '100%', borderRadius: 4 },
   list: { marginBottom: 20 },
   doneBtn: { borderRadius: 8, overflow: 'hidden', marginBottom: 12 },
@@ -333,5 +470,10 @@ const s = StyleSheet.create({
     gap: 8,
   },
   doneBtnText: { color: C.white, fontSize: 14, fontWeight: '800', letterSpacing: 3 },
-  footer: { color: 'rgba(255,255,255,0.18)', fontSize: 9.5, textAlign: 'center', letterSpacing: 0.3 },
+  footer: {
+    color: 'rgba(255,255,255,0.18)',
+    fontSize: 9.5,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
 });

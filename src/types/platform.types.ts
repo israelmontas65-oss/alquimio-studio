@@ -40,6 +40,7 @@ export type PlatformStatus =
   | 'processing'
   | 'publishing'
   | 'success'
+  | 'action_required'
   | 'error';
 
 export interface PlatformPublishResult {
@@ -49,4 +50,6 @@ export interface PlatformPublishResult {
   postUrl?: string;
   errorMessage?: string;
   postId?: string;
+  isSandbox?: boolean;
+  actionMessage?: string;
 }

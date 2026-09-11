@@ -109,11 +109,11 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     const signedState = await generateSignedState(signingSecret);
 
     // 3. Guardar en Cloudflare KV temporalmente (TTL de 600 segundos = 10 minutos)
-    if (context.env.TIKTOK_KV) {
+    const kv = context.env.TIKTOK_KV || (context.env as any).ALQUIMIA_KV;
+    if (kv) {
       try {
-        await context.env.TIKTOK_KV.put(`csrf:${signedState}`, 'active', {
-          expirationTtl: 600,
-        });
+        await kv.put(`csrf:${signedState}`, 'active', { expirationTtl: 600 });
+        await kv.put(`oauth_state:${signedState}`, 'active', { expirationTtl: 600 });
       } catch {
         // Continuar con cookie firmada si KV falla
       }

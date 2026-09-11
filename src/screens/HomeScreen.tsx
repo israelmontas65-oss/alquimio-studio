@@ -689,14 +689,6 @@ function Zone4Platforms({
   const { activePlatforms, togglePlatform, platformHandles, linkedAccounts } = useAppStore();
 
   const handlePlatformPress = (platformId: PlatformId, isLinked: boolean) => {
-    // Si TikTok no está vinculado, tocar el botón inicia directamente la conexión oficial
-    if (platformId === 'tiktok' && !isLinked) {
-      initiateTikTokOAuth({ forceLogin: false }).catch((err) => {
-        console.error('[Zone4Platforms] Error al conectar TikTok:', err);
-        onSelectPlatform('tiktok');
-      });
-      return;
-    }
     onSelectPlatform(platformId);
   };
 
@@ -706,8 +698,8 @@ function Zone4Platforms({
 
       <View style={z4.list}>
         {PLATFORMS.map((p) => {
-          const isActive = activePlatforms.has(p.id as PlatformId);
           const isLinked = linkedAccounts.has(p.id as PlatformId);
+          const isActive = isLinked && activePlatforms.has(p.id as PlatformId);
           const handle = platformHandles[p.id as PlatformId]?.trim();
           const customSub = isLinked
             ? (handle ? handle : 'Conectada')
@@ -749,10 +741,12 @@ function Zone4Platforms({
                 </View>
               </TouchableOpacity>
 
-              {/* Switch Verde Neón (#00FF7F) */}
+              {/* Switch Verde Neón (#00FF7F) - Bloqueado si no está vinculada */}
               <Switch
                 value={isActive}
+                disabled={!isLinked}
                 onValueChange={() => {
+                  if (!isLinked) return;
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   togglePlatform(p.id as PlatformId);
                 }}
@@ -760,7 +754,7 @@ function Zone4Platforms({
                 thumbColor="#FFFFFF"
                 style={[
                   isActive ? getWebGlow(C.greenActive, 10) : {},
-                  { transform: [{ scale: 1.05 }] },
+                  { transform: [{ scale: 1.05 }], opacity: isLinked ? 1 : 0.35 },
                 ]}
               />
             </View>

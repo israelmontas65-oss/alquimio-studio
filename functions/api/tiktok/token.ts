@@ -175,12 +175,27 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         );
       }
 
-      // Eliminar de KV inmediatamente (one-time use)
-      if (context.env.TIKTOK_KV) {
+      // Consumo atómico de KV (One-Time Use contra Replay Attacks)
+      const kv = context.env.TIKTOK_KV || (context.env as any).ALQUIMIA_KV;
+      if (kv) {
         try {
-          await context.env.TIKTOK_KV.delete(`csrf:${state}`);
+          const kvVal = (await kv.get(`csrf:${state}`)) || (await kv.get(`oauth_state:${state}`));
+          if (!kvVal) {
+            console.error('[Cloudflare Pages Functions] token: State ya consumido o expirado en KV.');
+            return new Response(
+              JSON.stringify({
+                error: {
+                  code: 'REPLAYED_CSRF_STATE',
+                  message: 'El código de seguridad Anti-CSRF ya ha sido consumido o expiró.',
+                },
+              }),
+              { status: 403, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+            );
+          }
+          await kv.delete(`csrf:${state}`);
+          await kv.delete(`oauth_state:${state}`);
         } catch {
-          // Silencioso
+          // Silencioso si KV falla temporalmente
         }
       }
     }

@@ -177,7 +177,7 @@ export async function initiateTikTokOAuth(options?: { forceLogin?: boolean; scop
   // ── 2A. Móvil Nativo (iOS / Android): WebBrowser.openAuthSessionAsync ─
   if (!isWebEnvironment) {
     // WebBrowser.openAuthSessionAsync maneja cookies del sistema y cierra
-    // automáticamente la ventana al redirigir al deep link alquimio://
+    // automáticamente la ventana al redirigir al deep link alquimia://
     const authResult = await WebBrowser.openAuthSessionAsync(authorizationUrl, redirectUri);
 
     if (authResult.type === 'success' && authResult.url) {

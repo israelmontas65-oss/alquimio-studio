@@ -296,4 +296,27 @@ export function CopySvg({ size = 18, color = '#00FFD4' }: IconProps) {
   );
 }
 
+// ── Time Outline SVG (En cola / espera) ─────────────────────────
+export function TimeOutlineSvg({ size = 18, color = '#8EA3BF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
+// ── Open Outline SVG (Enlace externo) ────────────────────────────
+export function OpenOutlineSvg({ size = 14, color = '#00FFD4' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}

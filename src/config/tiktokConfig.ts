@@ -30,7 +30,7 @@ export function getTikTokRedirectUri(): string {
   }
 
   // 3. En entorno móvil nativo (iOS / Android):
-  return 'alquimio://oauth/tiktok';
+  return 'alquimia://oauth/tiktok';
 }
 
 // ── Recuperar Client Key público si existe (fallback al backend) ──

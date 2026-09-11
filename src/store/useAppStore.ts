@@ -85,7 +85,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   fitMode: 'blur',
   caption: '',
   hashtags: [],
-  activePlatforms: new Set<PlatformId>(['tiktok', 'instagram', 'youtube', 'whatsapp', 'facebook']),
+  activePlatforms: new Set<PlatformId>(),
   platformSettings: {},
   linkedAccounts: new Set<PlatformId>(),
   platformHandles: {
@@ -126,6 +126,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   // ── Plataformas ──────────────────────────────────────────────
   togglePlatform: (id) =>
     set((state) => {
+      // Regla de integridad: Si no está vinculada, no se puede activar
+      if (!state.linkedAccounts.has(id)) {
+        return state;
+      }
       const next = new Set(state.activePlatforms);
       if (next.has(id)) {
         next.delete(id);
@@ -137,6 +141,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   setPlatformActive: (id, active) =>
     set((state) => {
+      // Regla de integridad: Si no está vinculada, no se puede activar
+      if (active && !state.linkedAccounts.has(id)) {
+        return state;
+      }
       const next = new Set(state.activePlatforms);
       active ? next.add(id) : next.delete(id);
       return { activePlatforms: next };

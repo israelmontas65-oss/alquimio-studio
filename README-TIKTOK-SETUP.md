@@ -12,7 +12,7 @@ En el portal de TikTok Developer deberás registrar **exactamente** estos Redire
 | :--- | :--- | :--- |
 | **Producción Web / PWA** | `https://alquimia-studio.pages.dev/oauth/tiktok` | Producción en vivo |
 | **Desarrollo Web Local** | `http://localhost:8081/oauth/tiktok` | Pruebas locales con Expo Web |
-| **App Móvil Nativa (iOS / Android)** | `alquimio://oauth/tiktok` | Deep Link para retorno automático a la app |
+| **App Móvil Nativa (iOS / Android)** | `alquimia://oauth/tiktok` | Deep Link para retorno automático a la app |
 
 > ⚠️ **IMPORTANTE**: Si el valor registrado en TikTok difiere en un solo carácter (por ejemplo, `/api/tiktok/callback` en vez de `/oauth/tiktok`), TikTok mostrará el error `redirect_uri mismatch` y bloqueará la conexión.
 
@@ -34,7 +34,7 @@ En el portal de TikTok Developer deberás registrar **exactamente** estos Redire
    - En la sección **Redirect URI**, agrega las 3 URLs de la tabla superior:
      - `https://alquimia-studio.pages.dev/oauth/tiktok`
      - `http://localhost:8081/oauth/tiktok`
-     - `alquimio://oauth/tiktok`
+     - `alquimia://oauth/tiktok`
 6. En la sección de **Scopes** (Permisos), asegúrate de que estén seleccionados:
    - `user.info.basic`
    - `user.info.profile`
