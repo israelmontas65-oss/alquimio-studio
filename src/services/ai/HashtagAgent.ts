@@ -6,7 +6,7 @@
 // Cero manipulación de archivos binarios: Solo cadenas de texto y métricas.
 // ============================================================
 
-import type { ContentCategory, HashtagSelectionResult, MarketTrendsData, UserLearningProfile } from './types';
+import type { ContentCategory, HashtagSelectionResult, MarketTrendsData, TrendRegion, UserLearningProfile } from './types';
 
 // Fallback de tendencias de mercado en tiempo real si no hay conexión de red
 const FALLBACK_MARKET_TRENDS: string[] = [
@@ -30,6 +30,7 @@ const NICHE_TAGS_MAP: Record<ContentCategory, string[]> = {
   commercial: ['emprendedores', 'negociosonline', 'marcapersonal', 'ventasinteligentes', 'exito'],
   education: ['conocimiento', 'sabiasque', 'curiosidades', 'cienciaparatodos', 'educacion'],
   lifestyle: ['estilodevida', 'rutinadiaria', 'vlogsenespañol', 'motivacion', 'crecimiento'],
+  document: [],
   general: ['viral', 'tendencia', 'parati', 'fyp', 'explorepage'],
 };
 
@@ -40,8 +41,11 @@ export class HashtagAgent {
   public static async selectHashtags(
     category: ContentCategory,
     userProfile?: UserLearningProfile | null,
-    liveTrends?: MarketTrendsData | null
+    liveTrends?: MarketTrendsData | null,
+    targetRegion?: TrendRegion
   ): Promise<HashtagSelectionResult> {
+    const activeRegion: TrendRegion = targetRegion || (liveTrends?.region as TrendRegion) || 'GLOBAL';
+
     // 1. Pilar de Mercado (40%): Consultar base de datos de tendencias en vivo
     const trendingMarket = this.extractMarketTrends(liveTrends);
 
@@ -68,6 +72,7 @@ export class HashtagAgent {
       nicheSpecific: nicheSpecific.slice(0, 4),
       userHistorical: userHistorical.slice(0, 2),
       combined,
+      region: activeRegion,
     };
   }
 

@@ -12,7 +12,10 @@ export type ContentCategory =
   | 'tech'
   | 'lifestyle'
   | 'commercial'
+  | 'document'
   | 'general';
+
+export type TrendRegion = 'LATAM' | 'ES' | 'US_HISPANIC' | 'GLOBAL';
 
 export interface TrendingHashtag {
   tag: string;
@@ -20,6 +23,7 @@ export interface TrendingHashtag {
   volume: string;
   category: string;
   isEmerging: boolean;
+  region?: TrendRegion;
 }
 
 export interface TrendingSoundMeta {
@@ -50,6 +54,8 @@ export interface MarketTrendsData {
   timestamp: number;
   dataSource: string;
   region: string;
+  isDegradedMode?: boolean;
+  lastSuccessfulUpdateText?: string;
   hashtags: TrendingHashtag[];
   sounds: TrendingSoundMeta[];
   patterns: OptimalFormatPattern[];
@@ -70,13 +76,26 @@ export interface UserLearningProfile {
   lastUpdated: number;
 }
 
+export interface HookVariant {
+  text: string;
+  style: string;
+  retentionPrediction: string; // e.g. "88% retención estimada"
+}
+
 export interface ClassificationResult {
   category: ContentCategory;
   categoryLabel: string;
   tone: string;
   viralHook: string;
+  hookVariants: {
+    variantA: HookVariant;
+    variantB: HookVariant;
+  };
   targetAudience: string;
   recommendedDurationSec: number;
+  isDocument: boolean;
+  isEligibleForSocialVideoDistribution: boolean;
+  rejectionReason?: string;
 }
 
 export interface PlatformCopyVariation {
@@ -92,6 +111,14 @@ export interface HashtagSelectionResult {
   nicheSpecific: string[];
   userHistorical: string[];
   combined: string[];
+  region: TrendRegion;
+}
+
+export interface PredictiveReachEstimate {
+  min: number;
+  max: number;
+  rationale: string;
+  disclaimer: string;
 }
 
 export interface OrchestratedOptimizationResult {
@@ -107,6 +134,7 @@ export interface OrchestratedOptimizationResult {
     userExperienceLevel: 'novice' | 'growing' | 'master';
     estimatedReachBoostMultiplier: number;
   };
+  estimatedReachRange: PredictiveReachEstimate;
   emergingAlert: {
     tag: string;
     velocity: string;
