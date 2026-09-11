@@ -1,0 +1,14 @@
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Content-Type: application/javascript; charset=utf-8
+
+/manifest.json
+  Cache-Control: no-cache, no-store, must-revalidate
+  Content-Type: application/manifest+json; charset=utf-8
+
+/api/*
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
