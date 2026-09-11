@@ -19,6 +19,7 @@ import {
   useWindowDimensions,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -778,6 +779,35 @@ function Zone5Publish({ onPress }: { onPress: () => void }) {
       <Text style={z5.footerText}>
         Alquimio v1.0 • Creado por Israel Montás • © 2026 Todos los derechos reservados
       </Text>
+
+      {/* Enlaces Legales Públicos */}
+      <View style={z5.legalLinks}>
+        <TouchableOpacity
+          onPress={() => {
+            if (Platform.OS === 'web' && typeof window !== 'undefined') {
+              window.open('/privacy.html', '_blank');
+            } else {
+              Linking.openURL('https://alquimia-studio.pages.dev/privacy.html');
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={z5.legalLinkText}>Privacidad y Seguridad</Text>
+        </TouchableOpacity>
+        <Text style={z5.legalSeparator}>•</Text>
+        <TouchableOpacity
+          onPress={() => {
+            if (Platform.OS === 'web' && typeof window !== 'undefined') {
+              window.open('/terms.html', '_blank');
+            } else {
+              Linking.openURL('https://alquimia-studio.pages.dev/terms.html');
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={z5.legalLinkText}>Términos</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -809,6 +839,23 @@ const z5 = StyleSheet.create({
     marginTop: 14,
     letterSpacing: 0.5,
     fontWeight: '500',
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  legalLinkText: {
+    color: C.cyanNeon,
+    fontSize: 11,
+    fontWeight: '600',
+    opacity: 0.85,
+  },
+  legalSeparator: {
+    color: C.textFooter,
+    fontSize: 11,
   },
 });
 

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Términos y Condiciones de Servicio — Alquimio Studio</title>
+  <meta name="description" content="Términos y condiciones oficiales de uso del servicio para la plataforma Alquimio Studio." />
+  <meta name="author" content="Israel Montás" />
+  <meta name="theme-color" content="#080C14" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  
+  <style>
+    :root {
+      --bg-main: #060A12;
+      --bg-card: rgba(13, 22, 38, 0.85);
+      --neon-cyan: #00FFD4;
+      --neon-cyan-dim: rgba(0, 255, 212, 0.12);
+      --neon-border: rgba(0, 255, 212, 0.3);
+      --gold: #F5C518;
+      --text-main: #F0F4FA;
+      --text-muted: #8EA3BF;
+      --text-sub: #5E7390;
+      --border: rgba(255, 255, 255, 0.08);
+      --code-bg: rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.7;
+      font-size: 16px;
+      padding: 0;
+      margin: 0;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 15% 10%, rgba(0, 255, 212, 0.04) 0%, transparent 45%),
+        radial-gradient(circle at 85% 80%, rgba(245, 197, 24, 0.03) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    .container {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 40px 24px 80px 24px;
+    }
+
+    header.hero {
+      text-align: center;
+      padding: 40px 20px 50px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 40px;
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--neon-cyan-dim);
+      border: 1px solid var(--neon-border);
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--neon-cyan);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-size: clamp(28px, 4.5vw, 42px);
+      font-weight: 900;
+      color: #FFFFFF;
+      margin-bottom: 14px;
+      line-height: 1.25;
+    }
+
+    .subtitle {
+      font-size: 17px;
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto 20px auto;
+    }
+
+    .meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      font-size: 13px;
+      color: var(--text-sub);
+      margin-top: 15px;
+    }
+
+    section.policy-block {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 34px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.35);
+      transition: border-color 0.25s ease;
+    }
+
+    section.policy-block:hover {
+      border-color: rgba(0, 255, 212, 0.35);
+    }
+
+    h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding-bottom: 12px;
+    }
+
+    h2 .section-num {
+      color: var(--neon-cyan);
+      font-size: 15px;
+      font-weight: 900;
+      background: var(--neon-cyan-dim);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    p { color: var(--text-muted); margin-bottom: 16px; font-size: 15px; }
+    p strong { color: #FFFFFF; }
+    ul { color: var(--text-muted); padding-left: 24px; margin-bottom: 18px; }
+    li { margin-bottom: 8px; font-size: 15px; }
+    li strong { color: #FFFFFF; }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 255, 212, 0.1);
+      border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      padding: 10px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 25px;
+      transition: all 0.2s ease;
+    }
+
+    .back-btn:hover {
+      background: var(--neon-cyan);
+      color: #040711;
+      box-shadow: 0 0 15px rgba(0, 255, 212, 0.5);
+    }
+
+    footer.site-footer {
+      text-align: center;
+      padding-top: 40px;
+      border-top: 1px solid var(--border);
+      color: var(--text-sub);
+      font-size: 13px;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: var(--neon-cyan);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .footer-links a:hover { text-decoration: underline; }
+    .author-seal { color: var(--gold); font-weight: 600; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <a href="/" class="back-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      Volver a Alquimio Studio
+    </a>
+
+    <header class="hero">
+      <div class="brand-badge">
+        Términos Oficiales de Uso
+      </div>
+      <h1>Condiciones y Términos de Servicio</h1>
+      <p class="subtitle">
+        Pautas contractuales de uso, responsabilidades sobre contenidos publicados y normativas para <strong>Alquimio Studio</strong>.
+      </p>
+      <div class="meta-bar">
+        <div><strong>Última actualización:</strong> 11 de septiembre de 2026</div>
+        <div><strong>Titular Legal:</strong> Israel Montás</div>
+      </div>
+    </header>
+
+    <main>
+
+      <section class="policy-block">
+        <h2><span class="section-num">01</span> Aceptación de los Términos</h2>
+        <p>
+          Al acceder, registrarse o utilizar la plataforma <strong>Alquimio Studio</strong> (<a href="https://alquimia-studio.pages.dev" style="color: var(--neon-cyan);">https://alquimia-studio.pages.dev</a>), aceptas vincularte legalmente a los presentes Términos de Servicio y a nuestra <a href="/privacy.html" style="color: var(--neon-cyan);">Política de Seguridad y Privacidad</a>.
+        </p>
+      </section>
+
+      <section class="policy-block">
+        <h2><span class="section-num">02</span> Descripción del Servicio</h2>
+        <p>
+          Alquimio es una herramienta de productividad y distribución multimedia que permite redactar copys asistidos por IA y publicar videos e imágenes en bloque hacia cuentas oficiales vinculadas de TikTok, YouTube, Facebook, Instagram y WhatsApp.
+        </p>
+      </section>
+
+      <section class="policy-block">
+        <h2><span class="section-num">03</span> Propiedad Intelectual del Contenido</h2>
+        <p>
+          El usuario retiene en todo momento el 100% de la propiedad intelectual, derechos de autor y responsabilidad sobre los archivos multimedia, textos y hashtags que cargue o transmita mediante Alquimio.
+        </p>
+        <p>
+          Alquimio no reclama titularidad alguna sobre tu contenido ni lo utilizará con fines promocionales propios sin tu consentimiento expreso.
+        </p>
+      </section>
+
+      <section class="policy-block">
+        <h2><span class="section-num">04</span> Uso Aceptable y Cumplimiento de Plataformas Terceras</h2>
+        <p>El usuario se compromete a no utilizar Alquimio para:</p>
+        <ul>
+          <li>Publicar material que infrinja derechos de autor de terceros o marcas registradas sin autorización.</li>
+          <li>Distribuir contenido ilegal, difamatorio, fraudulento, acoso o spam automatizado.</li>
+          <li>Infringir las normas comunitarias oficiales de <strong>TikTok</strong>, las políticas de <strong>Meta</strong> o las pautas de la comunidad de <strong>YouTube</strong>.</li>
+        </ul>
+      </section>
+
+      <section class="policy-block">
+        <h2><span class="section-num">05</span> Propiedad de la Plataforma y Marca</h2>
+        <p>
+          La marca "Alquimio", el software, el código fuente, la arquitectura de seguridad y los elementos visuales son propiedad intelectual exclusiva de <strong>Israel Montás</strong>, protegidos por leyes de derechos de autor y tratados internacionales.
+        </p>
+      </section>
+
+      <section class="policy-block">
+        <h2><span class="section-num">06</span> Contacto</h2>
+        <p>
+          Para consultas legales sobre estos términos, contactar a: <strong>Israel Montás</strong> vía correo electrónico en <a href="mailto:israelmontas65@gmail.com" style="color: var(--neon-cyan);">israelmontas65@gmail.com</a>.
+        </p>
+      </section>
+
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="/">Inicio / Aplicación</a>
+        <a href="/privacy.html">Política de Privacidad</a>
+        <a href="/terms.html">Términos de Servicio</a>
+      </div>
+      <p>© 2026 Alquimio Studio. Todos los derechos reservados.</p>
+      <p class="author-seal">Desarrollado y creado por Israel Montás</p>
+    </footer>
+
+  </div>
+
+</body>
+</html>

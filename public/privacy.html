@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Política de Seguridad y Privacidad — Alquimio Studio</title>
+  <meta name="description" content="Política oficial de seguridad, privacidad, tratamiento de datos y autenticación OAuth 2.0 para la plataforma Alquimio Studio." />
+  <meta name="author" content="Israel Montás" />
+  <meta name="theme-color" content="#080C14" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  
+  <style>
+    :root {
+      --bg-main: #060A12;
+      --bg-card: rgba(13, 22, 38, 0.85);
+      --bg-card-hover: rgba(18, 30, 52, 0.95);
+      --neon-cyan: #00FFD4;
+      --neon-cyan-dim: rgba(0, 255, 212, 0.12);
+      --neon-border: rgba(0, 255, 212, 0.3);
+      --gold: #F5C518;
+      --gold-dim: rgba(245, 197, 24, 0.12);
+      --text-main: #F0F4FA;
+      --text-muted: #8EA3BF;
+      --text-sub: #5E7390;
+      --border: rgba(255, 255, 255, 0.08);
+      --code-bg: rgba(0, 0, 0, 0.45);
+      --green: #00FF7F;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.7;
+      font-size: 16px;
+      padding: 0;
+      margin: 0;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 15% 10%, rgba(0, 255, 212, 0.04) 0%, transparent 45%),
+        radial-gradient(circle at 85% 80%, rgba(245, 197, 24, 0.03) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* Contenedor responsivo centrado */
+    .container {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 40px 24px 80px 24px;
+    }
+
+    /* Encabezado */
+    header.hero {
+      text-align: center;
+      padding: 40px 20px 50px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--neon-cyan-dim);
+      border: 1px solid var(--neon-border);
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--neon-cyan);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-size: clamp(28px, 4.5vw, 42px);
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      color: #FFFFFF;
+      margin-bottom: 14px;
+      line-height: 1.25;
+    }
+
+    .subtitle {
+      font-size: 17px;
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto 20px auto;
+    }
+
+    .meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      font-size: 13px;
+      color: var(--text-sub);
+      margin-top: 15px;
+    }
+
+    .meta-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .meta-item strong {
+      color: var(--text-muted);
+    }
+
+    /* Navegación rápida */
+    .toc-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--neon-cyan);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 45px;
+      backdrop-filter: blur(10px);
+    }
+
+    .toc-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--neon-cyan);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 10px 20px;
+      list-style: none;
+    }
+
+    .toc-grid a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toc-grid a:hover {
+      color: var(--neon-cyan);
+    }
+
+    /* Secciones */
+    section.policy-block {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 34px;
+      margin-bottom: 30px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.35);
+      transition: border-color 0.25s ease;
+    }
+
+    section.policy-block:hover {
+      border-color: rgba(0, 255, 212, 0.35);
+    }
+
+    h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding-bottom: 12px;
+    }
+
+    h2 .section-num {
+      color: var(--neon-cyan);
+      font-size: 15px;
+      font-weight: 900;
+      background: var(--neon-cyan-dim);
+      padding: 4px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    h3 {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--gold);
+      margin: 22px 0 10px 0;
+    }
+
+    p {
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      font-size: 15px;
+    }
+
+    p strong {
+      color: #FFFFFF;
+    }
+
+    ul, ol {
+      color: var(--text-muted);
+      padding-left: 24px;
+      margin-bottom: 18px;
+    }
+
+    li {
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+
+    li strong {
+      color: #FFFFFF;
+    }
+
+    /* Cajas destacadas de seguridad y alertas */
+    .alert-box {
+      background: rgba(0, 255, 212, 0.05);
+      border: 1px solid var(--neon-border);
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin: 20px 0;
+      font-size: 14px;
+      color: #D2FAF2;
+    }
+
+    .alert-box.gold {
+      background: rgba(245, 197, 24, 0.06);
+      border-color: rgba(245, 197, 24, 0.35);
+      color: #FFF2CC;
+    }
+
+    .alert-box strong {
+      color: #FFFFFF;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    /* Tabla de Permisos */
+    .table-wrap {
+      overflow-x: auto;
+      margin: 20px 0;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    th {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--neon-cyan);
+      padding: 14px 18px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .badge-scope {
+      font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      background: var(--code-bg);
+      color: #79C0FF;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: inline-block;
+      margin: 2px 0;
+    }
+
+    /* Pie de página */
+    footer.site-footer {
+      text-align: center;
+      padding-top: 40px;
+      border-top: 1px solid var(--border);
+      color: var(--text-sub);
+      font-size: 13px;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: var(--neon-cyan);
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.2s ease;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+
+    .author-seal {
+      color: var(--gold);
+      font-weight: 600;
+      margin-top: 8px;
+    }
+
+    /* Botón flotante para regresar a la aplicación */
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 255, 212, 0.1);
+      border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      padding: 10px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 25px;
+      transition: all 0.2s ease;
+    }
+
+    .back-btn:hover {
+      background: var(--neon-cyan);
+      color: #040711;
+      box-shadow: 0 0 15px rgba(0, 255, 212, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <!-- Botón Volver a la App -->
+    <a href="/" class="back-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      Volver a Alquimio Studio
+    </a>
+
+    <!-- Encabezado Principal -->
+    <header class="hero">
+      <div class="brand-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        Documento Oficial de Cumplimiento Legal y Seguridad
+      </div>
+      <h1>Política de Seguridad y Privacidad</h1>
+      <p class="subtitle">
+        Transparencia absoluta en el tratamiento de datos, gestión de permisos, autenticación OAuth 2.0 y encriptación de extremo a extremo para <strong>Alquimio Studio</strong>.
+      </p>
+
+      <div class="meta-bar">
+        <div class="meta-item">
+          <strong>Última actualización:</strong> 11 de septiembre de 2026
+        </div>
+        <div class="meta-item">
+          <strong>Versión de la Plataforma:</strong> Alquimio v1.0 Production
+        </div>
+        <div class="meta-item">
+          <strong>Responsable Legal:</strong> Israel Montás
+        </div>
+      </div>
+    </header>
+
+    <!-- Índice de Navegación -->
+    <nav class="toc-card">
+      <div class="toc-title">Índice del Documento</div>
+      <ul class="toc-grid">
+        <li><a href="#section-1">1. Identidad y Alcance</a></li>
+        <li><a href="#section-2">2. Principio de Cero Venta de Datos</a></li>
+        <li><a href="#section-3">3. Integración con APIs de Terceros</a></li>
+        <li><a href="#section-4">4. Seguridad, Criptografía y Tokens</a></li>
+        <li><a href="#section-5">5. Tratamiento de Videos y Medios</a></li>
+        <li><a href="#section-6">6. Revocación y Eliminación de Datos</a></li>
+        <li><a href="#section-7">7. Instrucciones para Meta y TikTok</a></li>
+        <li><a href="#section-8">8. Derechos del Usuario (GDPR / CCPA)</a></li>
+        <li><a href="#section-9">9. Contacto y Titularidad Legal</a></li>
+      </ul>
+    </nav>
+
+    <main>
+
+      <!-- SECCIÓN 1: IDENTIDAD Y ALCANCE -->
+      <section id="section-1" class="policy-block">
+        <h2><span class="section-num">01</span> Identidad, Titularidad y Alcance</h2>
+        <p>
+          El presente documento constituye la <strong>Política de Seguridad y Privacidad</strong> vinculante para la aplicación y plataforma web <strong>Alquimio</strong> (en adelante, "la Aplicación", "Alquimio" o "nuestros servicios"), alojada y accesible públicamente en el dominio oficial <a href="https://alquimia-studio.pages.dev" style="color: var(--neon-cyan);">https://alquimia-studio.pages.dev</a>.
+        </p>
+        <p>
+          La titularidad exclusiva, autoría intelectual y responsabilidad técnica de Alquimio corresponden legalmente a <strong>Israel Montás</strong>.
+        </p>
+        <p>
+          Alquimio es una plataforma centralizada de alta eficiencia orientada a creadores de contenido, marcas y agencias, diseñada para redactar, optimizar mediante inteligencia artificial y distribuir simultáneamente material multimedia (videos en formato vertical/Reels/Shorts/TikTok e imágenes) hacia sus cuentas oficiales en redes sociales mediante protocolos API oficiales.
+        </p>
+      </section>
+
+      <!-- SECCIÓN 2: PRINCIPIO FUNDAMENTAL -->
+      <section id="section-2" class="policy-block">
+        <h2><span class="section-num">02</span> Principio de Cero Comercialización y Minimización de Datos</h2>
+        <div class="alert-box">
+          <strong>🔒 Declaración Inquebrantable de Privacidad:</strong>
+          Alquimio NO vende, NO alquila, NO arrienda, NO intercambia ni transfiere datos personales, identificadores ni credenciales de los usuarios a anunciantes, intermediarios publicitarios (data brokers) ni a ningún tercero bajo ninguna circunstancia.
+        </div>
+        <p>
+          Nuestra arquitectura sigue el principio estricto de <strong>Minimización de Datos (Privacy by Design)</strong>. Solo recopilamos y procesamos la información técnica estrictamente indispensable para permitir la autorización y la publicación del contenido que el propio usuario decide emitir.
+        </p>
+        <p>Los datos procesados se limitan a:</p>
+        <ul>
+          <li><strong>Identificador público de cuenta:</strong> Identificador único anónimo otorgado por la plataforma (ej. <code>open_id</code> de TikTok, <code>page_id</code> de Facebook o <code>channel_id</code> de YouTube), nombre visible y avatar público únicamente para mostrar el estado de conexión activa en el panel de control.</li>
+          <li><strong>Tokens de acceso temporal (OAuth Tokens):</strong> Cadenas criptográficas autorizadas por el usuario que permiten realizar peticiones en su nombre a las APIs oficiales de publicación.</li>
+          <li><strong>Contenido seleccionado para publicación:</strong> Archivo multimedia (video/foto), título, descripción y hashtags provistos directamente por el usuario en el editor.</li>
+        </ul>
+      </section>
+
+      <!-- SECCIÓN 3: AUTENTICACIÓN CON APIS DE TERCEROS -->
+      <section id="section-3" class="policy-block">
+        <h2><span class="section-num">03</span> Integración con APIs Oficiales y Protocolo OAuth 2.0</h2>
+        <p>
+          Alquimio <strong>NUNCA solicita ni almacena contraseñas</strong> de tus redes sociales. El acceso se realiza exclusivamente mediante el estándar internacional de autorización delegada <strong>OAuth 2.0</strong>, donde el usuario inicia sesión directamente en los servidores de la plataforma oficial (TikTok, Google o Meta).
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Plataforma</th>
+                <th>Protocolo & API Oficial</th>
+                <th>Permisos Solicitados (Scopes)</th>
+                <th>Propósito Exclusivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>TikTok</strong></td>
+                <td>TikTok API v2<br/>(Login Kit & Content Posting API)</td>
+                <td>
+                  <span class="badge-scope">user.info.basic</span>
+                  <span class="badge-scope">video.upload</span>
+                  <span class="badge-scope">video.publish</span>
+                </td>
+                <td>Identificar la cuenta conectada y subir/publicar videos autorizados por el usuario en TikTok.</td>
+              </tr>
+              <tr>
+                <td><strong>YouTube Shorts</strong></td>
+                <td>Google OAuth 2.0 &<br/>YouTube Data API v3</td>
+                <td>
+                  <span class="badge-scope">https://www.googleapis.com/auth/youtube.upload</span>
+                </td>
+                <td>Subida directa de videos en formato Shorts al canal seleccionado del usuario.</td>
+              </tr>
+              <tr>
+                <td><strong>Facebook Pages</strong></td>
+                <td>Meta Graph API v20.0+</td>
+                <td>
+                  <span class="badge-scope">pages_show_list</span>
+                  <span class="badge-scope">pages_manage_posts</span>
+                </td>
+                <td>Listar páginas administradas por el usuario y publicar videos en el muro o Reels de la página.</td>
+              </tr>
+              <tr>
+                <td><strong>Instagram Reels</strong></td>
+                <td>Instagram Content Publishing API</td>
+                <td>
+                  <span class="badge-scope">instagram_basic</span>
+                  <span class="badge-scope">instagram_content_publish</span>
+                </td>
+                <td>Publicación de Reels en la cuenta profesional/creador de Instagram vinculada.</td>
+              </tr>
+              <tr>
+                <td><strong>WhatsApp Business</strong></td>
+                <td>WhatsApp Cloud API (Meta)</td>
+                <td>
+                  <span class="badge-scope">whatsapp_business_messaging</span>
+                </td>
+                <td>Difusión de avisos o multimedia a listas autorizadas por el cliente.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Cumplimiento con las Políticas de Datos de Usuario de Google API Services</h3>
+        <p>
+          El uso de la información recibida de las APIs de Google por parte de Alquimio se adhiere rigurosamente a la <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" style="color: var(--neon-cyan);">Política de Datos de Usuario de los Servicios de API de Google</a>, incluidos los requisitos de <strong>Uso Limitado (Limited Use)</strong>. Los datos obtenidos de Google nunca se transfieren a terceros ni se utilizan para alimentar modelos de IA generalistas.
+        </p>
+
+        <h3>Cumplimiento con TikTok Developer Terms of Service</h3>
+        <p>
+          La integración con TikTok for Developers cumple cabalmente con las directrices de uso de la API v2, protegiendo las credenciales mediante mecanismos PKCE (RFC 7636) y respetando las decisiones de privacidad del creador.
+        </p>
+      </section>
+
+      <!-- SECCIÓN 4: SEGURIDAD, ENCRIPTACIÓN Y RESGUARDO DE TOKENS -->
+      <section id="section-4" class="policy-block">
+        <h2><span class="section-num">04</span> Seguridad, Encriptación y Resguardo Criptográfico</h2>
+        <p>
+          Alquimio implementa una arquitectura defensiva de grado empresarial para blindar cada transacción y cada dato en reposo y en tránsito:
+        </p>
+
+        <ul>
+          <li><strong>Cifrado de Tránsito Obligatorio (TLS 1.3 / HTTPS):</strong> Todas las comunicaciones entre el dispositivo del usuario, los servidores de Cloudflare Pages y las APIs externas están forzosamente cifradas mediante TLS 1.3 con certificados SSL de curva elíptica.</li>
+          <li><strong>Resguardo Server-Side de Secretos:</strong> Los secretos de desarrollador (<code>TIKTOK_CLIENT_SECRET</code>, App Secrets de Meta, Client Secrets de Google) residen de forma inmutable y encriptada en las variables de entorno de Cloudflare Pages Functions. <em>Ningún secreto de API se expone jamás al código cliente del navegador o aplicación móvil.</em></li>
+          <li><strong>Protección Criptográfica Anti-CSRF (HMAC-SHA256):</strong> Cada solicitud de autorización genera un parámetro <code>state</code> único, firmado con HMAC-SHA256 y vinculado a una ventana de expiración estricta de 10 minutos (TTL), impidiendo ataques de falsificación de peticiones en sitios cruzados.</li>
+          <li><strong>Almacenamiento Seguro de Sesiones:</strong> En la web, las sesiones se manejan a través de cookies con atributos estrictos: <code>HttpOnly</code> (inmunes a robos vía XSS en JavaScript), <code>SameSite=Lax</code> y <code>Secure</code>. En dispositivos móviles, se utiliza el enclave seguro nativo (Keychain en iOS y Android Keystore encriptado con AES-256-GCM).</li>
+        </ul>
+      </section>
+
+      <!-- SECCIÓN 5: TRATAMIENTO DE VIDEOS Y MEDIOS -->
+      <section id="section-5" class="policy-block">
+        <h2><span class="section-num">05</span> Tratamiento de Archivos Multimedia (Videos e Imágenes)</h2>
+        <div class="alert-box gold">
+          <strong>⚡ Procesamiento Transitorio (Zero Permanent Storage):</strong>
+          Los videos e imágenes que cargas en Alquimio son procesados de forma temporal únicamente para la transmisión hacia las plataformas de destino. Alquimio NO conserva copias de tus videos en servidores una vez completada la publicación.
+        </div>
+        <p>
+          Cuando seleccionas un video para publicar en bloque:
+        </p>
+        <ol>
+          <li>El archivo se procesa en la memoria local del navegador o dispositivo mediante streams binarios seguros.</li>
+          <li>Se transmite directamente a los puntos de subida autorizados de TikTok, Google o Meta mediante peticiones autenticadas.</li>
+          <li>Una vez que la red social confirma la recepción y publicación exitosa del video, los búferes de memoria temporal son purgados inmediatamente.</li>
+        </ol>
+      </section>
+
+      <!-- SECCIÓN 6: REVOCACIÓN Y ELIMINACIÓN -->
+      <section id="section-6" class="policy-block">
+        <h2><span class="section-num">06</span> Revocación de Acceso y Eliminación de Sesiones</h2>
+        <p>
+          El usuario conserva el control absoluto e irreversible sobre sus cuentas vinculadas:
+        </p>
+        <ul>
+          <li><strong>Desvinculación con un solo clic:</strong> Desde el modal de configuración de cada red social en Alquimio, el usuario puede presionar el botón <em>"Desvincular cuenta y revocar acceso"</em>.</li>
+          <li><strong>Revocación Remota en la API Oficial:</strong> Al desvincularse, Alquimio envía una orden inmediata de revocación hacia el endpoint oficial de la red social (por ejemplo, <code>https://open.tiktokapis.com/v2/oauth/revoke/</code>), invalidando de inmediato los tokens de acceso y refresco en los servidores centrales de dicha plataforma.</li>
+          <li><strong>Purga Local Inmediata:</strong> Los tokens, identificadores y credenciales guardados en el almacenamiento del navegador (localStorage/cookies/SecureStore) se eliminan instantáneamente.</li>
+        </ul>
+      </section>
+
+      <!-- SECCIÓN 7: INSTRUCCIONES FORMALES PARA META Y TIKTOK -->
+      <section id="section-7" class="policy-block">
+        <h2><span class="section-num">07</span> Instrucciones Oficiales de Eliminación de Datos (Data Deletion Instructions)</h2>
+        <p>
+          En cumplimiento con los requerimientos de la <strong>Plataforma Meta para Desarrolladores</strong> y <strong>TikTok for Developers</strong>, se detallan a continuación los pasos para que cualquier usuario solicite la eliminación total de sus datos o revoque el acceso de forma autónoma:
+        </p>
+
+        <h3>Opción A: Revocación Directa desde la Red Social</h3>
+        <p>Puedes desvincular Alquimio directamente desde tu cuenta en cualquier momento:</p>
+        <ul>
+          <li><strong>Desde TikTok:</strong> Abre la aplicación de TikTok &gt; Perfil &gt; Menú (tres líneas) &gt; Ajustes y Privacidad &gt; Seguridad y Permisos &gt; Administrar permisos de aplicaciones &gt; Busca <strong>Alquimia</strong> o <strong>Alquimio Studio</strong> &gt; Pulsa <em>"Eliminar acceso"</em>.</li>
+          <li><strong>Desde Facebook / Meta:</strong> Ve a Configuración y Privacidad &gt; Configuración &gt; Aplicaciones y sitios web &gt; Selecciona <strong>Alquimio</strong> &gt; Pulsa <em>"Eliminar"</em>.</li>
+          <li><strong>Desde Google / YouTube:</strong> Accede a <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" style="color: var(--neon-cyan);">https://myaccount.google.com/permissions</a> &gt; Selecciona <strong>Alquimio Studio</strong> &gt; Pulsa <em>"Quitar acceso"</em>.</li>
+        </ul>
+
+        <h3>Opción B: Solicitud de Eliminación Asistida</h3>
+        <p>
+          Si deseas que nuestro equipo elimine manualmente cualquier identificador residual o registro de soporte asociado a tu cuenta, envía un correo electrónico a:
+        </p>
+        <div class="alert-box">
+          <strong>Correo de Eliminación de Datos:</strong>
+          <code>israelmontas65@gmail.com</code> con el asunto <code>"Solicitud de Eliminación de Datos - Alquimio"</code>, indicando tu nombre de usuario o el identificador de la red social. Tu solicitud será procesada y confirmada en un plazo máximo de 48 horas hábiles.
+        </div>
+      </section>
+
+      <!-- SECCIÓN 8: DERECHOS ARCO, GDPR Y CCPA -->
+      <section id="section-8" class="policy-block">
+        <h2><span class="section-num">08</span> Derechos de los Usuarios (GDPR, CCPA y Derechos ARCO)</h2>
+        <p>
+          Cualquier usuario de Alquimio goza de los siguientes derechos fundamentales respecto a su información:
+        </p>
+        <ul>
+          <li><strong>Acceso y Rectificación:</strong> Consultar qué datos están asociados a su cuenta activa en cualquier momento.</li>
+          <li><strong>Supresión (Derecho al Olvido):</strong> Solicitar la erradicación permanente de sus registros técnicos.</li>
+          <li><strong>Limitación y Oposición al Tratamiento:</strong> Revocar en cualquier instante el consentimiento previamente otorgado sin penalización alguna.</li>
+          <li><strong>Portabilidad:</strong> Obtener sus metadatos en formatos estructurados estándar.</li>
+        </ul>
+      </section>
+
+      <!-- SECCIÓN 9: CONTACTO LEGAL Y AUTORÍA -->
+      <section id="section-9" class="policy-block">
+        <h2><span class="section-num">09</span> Titularidad Legal, Autoría y Contacto</h2>
+        <p>
+          Para cualquier consulta legal, auditoría técnica de seguridad, inquietud sobre privacidad o reporte de vulnerabilidades (Responsible Disclosure), puedes comunicarte directamente con el titular y desarrollador de la plataforma:
+        </p>
+
+        <div style="background: var(--code-bg); padding: 20px; border-radius: 10px; border: 1px solid var(--border); margin-top: 15px;">
+          <p style="margin-bottom: 6px;"><strong>Titular y Propietario Legal:</strong> Israel Montás</p>
+          <p style="margin-bottom: 6px;"><strong>Aplicación:</strong> Alquimio (Alquimia Studio)</p>
+          <p style="margin-bottom: 6px;"><strong>Correo Electrónico de Contacto:</strong> <a href="mailto:israelmontas65@gmail.com" style="color: var(--neon-cyan);">israelmontas65@gmail.com</a></p>
+          <p style="margin-bottom: 6px;"><strong>Sitio Web Oficial:</strong> <a href="https://alquimia-studio.pages.dev" style="color: var(--neon-cyan);">https://alquimia-studio.pages.dev</a></p>
+          <p style="margin-bottom: 0;"><strong>Jurisdicción:</strong> República Dominicana / Aplicación de estándares internacionales de protección de datos (GDPR / CCPA / Directrices de APIs de Plataformas Sociales).</p>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Pie de Página -->
+    <footer class="site-footer">
+      <div class="footer-links">
+        <a href="/">Inicio / Aplicación</a>
+        <a href="/privacy.html">Política de Privacidad</a>
+        <a href="/terms.html">Términos de Servicio</a>
+      </div>
+      <p>© 2026 Alquimio Studio. Todos los derechos reservados.</p>
+      <p class="author-seal">Desarrollado y creado por Israel Montás</p>
+    </footer>
+
+  </div>
+
+</body>
+</html>
