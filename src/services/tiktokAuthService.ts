@@ -109,11 +109,12 @@ function parseQueryParams(url: string): Record<string, string> {
 }
 
 // ── 2. Iniciar flujo oficial OAuth 2.0 PKCE ───────────────────
-export async function initiateTikTokOAuth(options?: { forceLogin?: boolean }): Promise<void> {
+export async function initiateTikTokOAuth(options?: { forceLogin?: boolean; scope?: string }): Promise<void> {
   const codeVerifier = generateRandomString(64);
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   const redirectUri = getTikTokRedirectUri();
   const forceLogin = options?.forceLogin === true;
+  const customScope = options?.scope;
 
   let authorizationUrl = '';
   let serverState = '';
@@ -129,6 +130,7 @@ export async function initiateTikTokOAuth(options?: { forceLogin?: boolean }): P
         code_challenge: codeChallenge,
         redirect_uri: redirectUri,
         force_login: forceLogin ? 'true' : 'false',
+        ...(customScope ? { scope: customScope } : {}),
       },
     });
 
@@ -152,7 +154,7 @@ export async function initiateTikTokOAuth(options?: { forceLogin?: boolean }): P
     serverState = generateRandomString(32);
     const params = new URLSearchParams({
       client_key: clientKey,
-      scope: TIKTOK_SCOPES,
+      scope: customScope || TIKTOK_SCOPES,
       response_type: 'code',
       redirect_uri: redirectUri,
       state: serverState,
@@ -165,7 +167,7 @@ export async function initiateTikTokOAuth(options?: { forceLogin?: boolean }): P
       params.append('force_web_auth', '1');
     }
 
-    authorizationUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`;
+    authorizationUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`.replace(/%2C/g, ',');
   }
 
   // Guardar estado y verifier para validar en el callback

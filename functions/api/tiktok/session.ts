@@ -89,14 +89,16 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     const now = Date.now();
     // Si quedan menos de 5 minutos y tenemos refresh_token, refrescamos en backend
     if (session.expires_at - now < 300_000 && session.refresh_token) {
-      const clientKey =
+      const clientKey = (
         context.env.TIKTOK_CLIENT_KEY ||
         context.env.EXPO_PUBLIC_TIKTOK_CLIENT_KEY ||
-        '';
-      const clientSecret =
+        ''
+      ).trim();
+      const clientSecret = (
         context.env.TIKTOK_CLIENT_SECRET ||
         context.env.EXPO_PUBLIC_TIKTOK_CLIENT_SECRET ||
-        '';
+        ''
+      ).trim();
 
       if (!clientKey) {
         console.warn('[Cloudflare Pages Functions] session: Auto-refresh omitido porque falta TIKTOK_CLIENT_KEY.');

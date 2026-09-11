@@ -24,7 +24,7 @@ const CORS_HEADERS = {
 };
 
 const TIKTOK_AUTH_URL = 'https://www.tiktok.com/v2/auth/authorize/';
-const TIKTOK_SCOPES = 'user.info.basic,user.info.profile,video.publish,video.upload';
+const DEFAULT_TIKTOK_SCOPES = 'user.info.basic,user.info.profile,video.publish,video.upload';
 
 export async function onRequestOptions(): Promise<Response> {
   return new Response(null, {
@@ -65,23 +65,21 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     const url = new URL(context.request.url);
     const codeChallenge = url.searchParams.get('code_challenge');
     const forceLogin = url.searchParams.get('force_login') === 'true';
-    let redirectUri = url.searchParams.get('redirect_uri');
+    const customScope = url.searchParams.get('scope');
+    let redirectUri = (url.searchParams.get('redirect_uri') || `${url.origin}/oauth/tiktok`).trim();
 
-    if (!redirectUri) {
-      const origin = url.origin;
-      redirectUri = `${origin}/oauth/tiktok`;
-    }
-
-    // ── 1. Lectura y diagnóstico específico de variables de entorno ─
-    const clientKey =
+    // ── 1. Lectura estricta y saneada (.trim()) de variables de entorno ─
+    const clientKey = (
       context.env.TIKTOK_CLIENT_KEY ||
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_KEY ||
-      '';
+      ''
+    ).trim();
 
-    const clientSecret =
+    const clientSecret = (
       context.env.TIKTOK_CLIENT_SECRET ||
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_SECRET ||
-      '';
+      ''
+    ).trim();
 
     if (!clientKey) {
       console.error('[Cloudflare Pages Functions] auth-url: Falta la variable de entorno TIKTOK_CLIENT_KEY.');
@@ -124,13 +122,14 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     // 4. Configurar cookie segura de CSRF state (Max-Age 600s = 10 min)
     const csrfCookie = `alquimia_csrf_state=${encodeURIComponent(signedState)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600; Secure`;
 
-    const params = new URLSearchParams({
-      client_key: clientKey,
-      scope: TIKTOK_SCOPES,
-      response_type: 'code',
-      redirect_uri: redirectUri,
-      state: signedState,
-    });
+    const scopesToRequest = (customScope || DEFAULT_TIKTOK_SCOPES).trim();
+
+    const params = new URLSearchParams();
+    params.append('client_key', clientKey);
+    params.append('scope', scopesToRequest);
+    params.append('response_type', 'code');
+    params.append('redirect_uri', redirectUri);
+    params.append('state', signedState);
 
     if (codeChallenge) {
       params.append('code_challenge', codeChallenge);
@@ -143,7 +142,10 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
       params.append('force_web_auth', '1');
     }
 
-    const authorizationUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`;
+    // CRÍTICO: TikTok API v2 Login Kit requiere que los scopes se separen por comas literales ','
+    // Si URLSearchParams codifica la coma como %2C, el parser de TikTok la interpreta como un único scope inexistente
+    // y devuelve el error: "probablemente debido a ajustes específicos de la aplicación: client_key"
+    const authorizationUrl = `${TIKTOK_AUTH_URL}?${params.toString()}`.replace(/%2C/g, ',');
 
     return new Response(
       JSON.stringify({
@@ -152,6 +154,7 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
           clientKey,
           state: signedState,
           redirectUri,
+          scopes: scopesToRequest,
         },
       }),
       {

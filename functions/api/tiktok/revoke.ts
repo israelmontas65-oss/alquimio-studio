@@ -34,15 +34,17 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       session_id?: string;
     };
 
-    const clientKey =
+    const clientKey = (
       context.env.TIKTOK_CLIENT_KEY ||
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_KEY ||
-      '';
+      ''
+    ).trim();
 
-    const clientSecret =
+    const clientSecret = (
       context.env.TIKTOK_CLIENT_SECRET ||
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_SECRET ||
-      '';
+      ''
+    ).trim();
 
     if (!clientKey) {
       console.warn('[Cloudflare Pages Functions] revoke: TIKTOK_CLIENT_KEY no configurado, revocación remota omitida.');

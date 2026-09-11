@@ -95,15 +95,17 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     };
 
     // ── 1. Verificación explícita y diferenciada de variables de entorno ─
-    const clientKey =
+    const clientKey = (
       context.env.TIKTOK_CLIENT_KEY ||
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_KEY ||
-      '';
+      ''
+    ).trim();
 
-    const clientSecret =
+    const clientSecret = (
       context.env.TIKTOK_CLIENT_SECRET ||
       context.env.EXPO_PUBLIC_TIKTOK_CLIENT_SECRET ||
-      '';
+      ''
+    ).trim();
 
     if (!clientKey) {
       console.error('[Cloudflare Pages Functions] token: Falta la variable de entorno TIKTOK_CLIENT_KEY.');
