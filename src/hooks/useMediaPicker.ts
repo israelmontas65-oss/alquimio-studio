@@ -42,7 +42,7 @@ export function useMediaPicker() {
     if (status !== 'granted') {
       Alert.alert(
         'Permiso requerido',
-        'Alquimio necesita acceso a tu galería para seleccionar archivos.',
+        'Alquimia Estudio necesita acceso a tu galería para seleccionar archivos.',
         [{ text: 'OK' }]
       );
       return false;

@@ -236,7 +236,7 @@ export function PublishModal() {
             )}
 
             {/* Footer autoría */}
-            <Text style={s.footer}>Alquimio · Israel Montás · © 2026</Text>
+            <Text style={s.footer}>Alquimia Estudio · Israel Montás · © 2026</Text>
           </View>
         </View>
       </BlurView>

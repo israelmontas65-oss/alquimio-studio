@@ -39,7 +39,7 @@ import { TrendAlertBanner } from '../components/trends/TrendAlertBanner';
 import { AutoUpdateManager } from '../components/version/AutoUpdateManager';
 import { APP_VERSION } from '../constants/version';
 import { getToken } from '../auth/tokenManager';
-import { checkBackendSession } from '../services/tiktokAuthService';
+import { checkBackendSession, initiateTikTokOAuth } from '../services/tiktokAuthService';
 
 // Carga diferida universal (Web, iOS, Android) para modales secundarios pesados
 const PublishModal = React.lazy(() =>
@@ -675,10 +675,10 @@ const z3 = StyleSheet.create({
 // ─────────────────────────────────────────────
 const PLATFORMS = [
   { id: 'tiktok', label: 'TikTok', sub: 'Toca para conectar', color: '#00F2FE', SvgIcon: TikTokSvg },
-  { id: 'instagram', label: 'Reels de Instagram', sub: '@alquimio', color: '#E1306C', SvgIcon: InstagramSvg },
-  { id: 'youtube', label: 'Cortometrajes de YouTube', sub: '@alquimio', color: '#FF0000', SvgIcon: YouTubeSvg },
-  { id: 'whatsapp', label: 'WhatsApp', sub: '@alquimio', color: '#25D366', SvgIcon: WhatsAppSvg },
-  { id: 'facebook', label: 'Facebook', sub: '@alquimio', color: '#1877F2', SvgIcon: FacebookSvg },
+  { id: 'instagram', label: 'Reels de Instagram', sub: 'Toca para conectar', color: '#E1306C', SvgIcon: InstagramSvg },
+  { id: 'youtube', label: 'Cortometrajes de YouTube', sub: 'Toca para conectar', color: '#FF0000', SvgIcon: YouTubeSvg },
+  { id: 'whatsapp', label: 'WhatsApp', sub: 'Toca para conectar', color: '#25D366', SvgIcon: WhatsAppSvg },
+  { id: 'facebook', label: 'Facebook', sub: 'Toca para conectar', color: '#1877F2', SvgIcon: FacebookSvg },
 ];
 
 function Zone4Platforms({
@@ -688,6 +688,18 @@ function Zone4Platforms({
 }) {
   const { activePlatforms, togglePlatform, platformHandles, linkedAccounts } = useAppStore();
 
+  const handlePlatformPress = (platformId: PlatformId, isLinked: boolean) => {
+    // Si TikTok no está vinculado, tocar el botón inicia directamente la conexión oficial
+    if (platformId === 'tiktok' && !isLinked) {
+      initiateTikTokOAuth({ forceLogin: false }).catch((err) => {
+        console.error('[Zone4Platforms] Error al conectar TikTok:', err);
+        onSelectPlatform('tiktok');
+      });
+      return;
+    }
+    onSelectPlatform(platformId);
+  };
+
   return (
     <View style={z4.container}>
       <Text style={z4.title}>Plataformas Sincronizadas</Text>
@@ -696,12 +708,15 @@ function Zone4Platforms({
         {PLATFORMS.map((p) => {
           const isActive = activePlatforms.has(p.id as PlatformId);
           const isLinked = linkedAccounts.has(p.id as PlatformId);
-          const customSub = platformHandles[p.id as PlatformId] || (isLinked ? p.sub : 'Toca para conectar');
+          const handle = platformHandles[p.id as PlatformId]?.trim();
+          const customSub = isLinked
+            ? (handle ? handle : 'Conectada')
+            : 'Toca para conectar';
 
           return (
             <View key={p.id} style={z4.row}>
               <TouchableOpacity
-                onPress={() => onSelectPlatform(p.id as PlatformId)}
+                onPress={() => handlePlatformPress(p.id as PlatformId, isLinked)}
                 style={z4.touchArea}
                 activeOpacity={0.7}
               >
@@ -716,7 +731,7 @@ function Zone4Platforms({
                   <p.SvgIcon size={28} />
                 </View>
 
-                {/* Textos Claros: Nombre (15px bold blanco) y Usuario (@alquimio, 13px #8EA3BF) */}
+                {/* Textos Claros: Nombre de la plataforma y Cuenta real conectada o 'Conectada' */}
                 <View style={z4.textWrap}>
                   <View style={z4.labelRow}>
                     <Text style={z4.label}>{p.label}</Text>
@@ -901,7 +916,7 @@ function Zone5Publish({
 
       {/* Sello de Autoría Legible e Inalterable */}
       <Text style={z5.footerText}>
-        Alquimio • Creado por Israel Montás • © 2026 Todos los derechos reservados
+        Alquimia Estudio • Creado por Israel Montás • © 2026 Todos los derechos reservados
       </Text>
 
       {/* Versión Dinámica de la App y Acceso a Novedades */}
@@ -1057,18 +1072,23 @@ export default function HomeScreen() {
   // DETECCIÓN AUTOMÁTICA DE PWA STANDALONE INSTALADA
   const [isStandalone, setIsStandalone] = useState(false);
 
-  // Sincronizar cuenta de TikTok con sesión de backend y token local
+  // Sincronizar cuentas reales guardadas con tokenManager y sesión de backend
   useEffect(() => {
-    async function syncTikTok() {
-      const connectedOnBackend = await checkBackendSession();
-      if (!connectedOnBackend) {
-        const tk = await getToken('tiktok');
+    async function syncAccounts() {
+      // 1. TikTok backend
+      await checkBackendSession();
+
+      // 2. Verificar tokens locales reales guardados para todas las plataformas
+      const allPlatforms: PlatformId[] = ['tiktok', 'instagram', 'youtube', 'whatsapp', 'facebook'];
+      for (const pid of allPlatforms) {
+        const tk = await getToken(pid);
         if (tk?.accessToken) {
-          linkAccount('tiktok', tk.displayName || '@tiktok_user');
+          const validHandle = tk.displayName?.trim() || '';
+          linkAccount(pid, validHandle);
         }
       }
     }
-    syncTikTok();
+    syncAccounts();
   }, [linkAccount]);
 
   useEffect(() => {
@@ -1094,11 +1114,11 @@ export default function HomeScreen() {
       promptEvent.prompt();
     } else {
       Alert.alert(
-        'Instalar Alquimio Studio',
+        'Instalar Alquimia Estudio',
         Platform.OS === 'web' &&
           /iPhone|iPad|iPod/.test(navigator.userAgent || '')
           ? 'Para instalar en Safari iOS:\n1. Toca el botón Compartir (cuadrado con flecha hacia arriba).\n2. Elige "Añadir a la pantalla de inicio".'
-          : 'Para instalar en este navegador:\n1. Toca el icono de instalación en la barra o en el menú ⋮.\n2. Selecciona "Instalar Alquimio Studio".',
+          : 'Para instalar en este navegador:\n1. Toca el icono de instalación en la barra o en el menú ⋮.\n2. Selecciona "Instalar Alquimia Estudio".',
         [{ text: 'Entendido' }]
       );
     }

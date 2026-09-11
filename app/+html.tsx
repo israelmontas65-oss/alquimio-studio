@@ -19,7 +19,7 @@ export default function Root({ children }: PropsWithChildren) {
         />
 
         {/* Metadatos PWA y Tema Cyber Espacial */}
-        <title>Alquimio Studio</title>
+        <title>Alquimia Estudio</title>
         <meta name="description" content="Plataforma Universal de Publicación y Distribución en Bloque" />
         <meta name="theme-color" content="#040711" />
         <meta name="background-color" content="#040711" />
@@ -32,14 +32,14 @@ export default function Root({ children }: PropsWithChildren) {
         {/* PWA para iOS Safari Standalone */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Alquimio" />
+        <meta name="apple-mobile-web-app-title" content="Alquimia Estudio" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
         <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png" />
 
         {/* PWA para Android, Chrome, Edge, Firefox Standalone */}
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="application-name" content="Alquimio" />
+        <meta name="application-name" content="Alquimia Estudio" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
         <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />

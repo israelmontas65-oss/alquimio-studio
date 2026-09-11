@@ -45,12 +45,13 @@ export interface TikTokTokenResponse {
 // ── 1. Almacenamiento temporal para PKCE y State ─────────────
 async function saveOAuthState(state: string, verifier: string): Promise<void> {
   if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STATE_STORAGE_KEY, state);
+      localStorage.setItem(PKCE_STORAGE_KEY, verifier);
+    }
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.setItem(STATE_STORAGE_KEY, state);
       sessionStorage.setItem(PKCE_STORAGE_KEY, verifier);
-    } else if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(STATE_STORAGE_KEY, state);
-      localStorage.setItem(PKCE_STORAGE_KEY, verifier);
     }
   } else {
     await SecureStore.setItemAsync(STATE_STORAGE_KEY, state);
@@ -60,15 +61,15 @@ async function saveOAuthState(state: string, verifier: string): Promise<void> {
 
 async function getStoredOAuthState(): Promise<{ state: string | null; verifier: string | null }> {
   if (Platform.OS === 'web') {
-    if (typeof sessionStorage !== 'undefined') {
-      const state = sessionStorage.getItem(STATE_STORAGE_KEY);
-      const verifier = sessionStorage.getItem(PKCE_STORAGE_KEY);
+    if (typeof localStorage !== 'undefined') {
+      const state = localStorage.getItem(STATE_STORAGE_KEY);
+      const verifier = localStorage.getItem(PKCE_STORAGE_KEY);
       if (state || verifier) return { state, verifier };
     }
-    if (typeof localStorage !== 'undefined') {
+    if (typeof sessionStorage !== 'undefined') {
       return {
-        state: localStorage.getItem(STATE_STORAGE_KEY),
-        verifier: localStorage.getItem(PKCE_STORAGE_KEY),
+        state: sessionStorage.getItem(STATE_STORAGE_KEY),
+        verifier: sessionStorage.getItem(PKCE_STORAGE_KEY),
       };
     }
     return { state: null, verifier: null };
@@ -81,13 +82,13 @@ async function getStoredOAuthState(): Promise<{ state: string | null; verifier: 
 
 async function clearStoredOAuthState(): Promise<void> {
   if (Platform.OS === 'web') {
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.removeItem(STATE_STORAGE_KEY);
-      sessionStorage.removeItem(PKCE_STORAGE_KEY);
-    }
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(STATE_STORAGE_KEY);
       localStorage.removeItem(PKCE_STORAGE_KEY);
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(STATE_STORAGE_KEY);
+      sessionStorage.removeItem(PKCE_STORAGE_KEY);
     }
   } else {
     await SecureStore.deleteItemAsync(STATE_STORAGE_KEY);
@@ -199,39 +200,14 @@ export async function initiateTikTokOAuth(options?: { forceLogin?: boolean; scop
   }
 
   // ── 2B. Entorno Web / PWA ────────────────────────────────────
-  const isStandalone =
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as unknown as { standalone?: boolean }).standalone === true;
-
-  if (isStandalone) {
-    // En PWA instalada, redirección directa en la misma ventana
+  // Redirección directa y segura en la misma ventana:
+  // - Evita que el navegador (Safari iOS, Chrome Android, Desktop) bloquee la ventana emergente como pop-up.
+  // - Permite que TikTok detecte cookies de sesión activas en el dispositivo para vincular inmediatamente.
+  // - Si no hay sesión, TikTok muestra el login estándar y redirige limpiamente al callback.
+  if (typeof window !== 'undefined') {
     window.location.href = authorizationUrl;
     return;
   }
-
-  // En navegador de escritorio / móvil web: popup centrado
-  const width = 520;
-  const height = 750;
-  const left = Math.max(0, (window.innerWidth - width) / 2 + window.screenX);
-  const top = Math.max(0, (window.innerHeight - height) / 2 + window.screenY);
-
-  const popup = window.open(
-    authorizationUrl,
-    'tiktok_oauth_window',
-    `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes,scrollbars=yes`
-  );
-
-  if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-    window.location.href = authorizationUrl;
-    return;
-  }
-
-  // Polling de seguridad por si el usuario cierra el popup manualmente
-  const pollTimer = setInterval(() => {
-    if (popup.closed) {
-      clearInterval(pollTimer);
-    }
-  }, 1000);
 }
 
 // ── 3. Intercambiar código por tokens (Server-Side con CSRF) ──

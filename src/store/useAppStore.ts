@@ -85,15 +85,15 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   fitMode: 'blur',
   caption: '',
   hashtags: [],
-  activePlatforms: new Set<PlatformId>(['instagram', 'youtube', 'whatsapp', 'facebook']),
+  activePlatforms: new Set<PlatformId>(['tiktok', 'instagram', 'youtube', 'whatsapp', 'facebook']),
   platformSettings: {},
-  linkedAccounts: new Set<PlatformId>(['instagram', 'youtube', 'whatsapp', 'facebook']),
+  linkedAccounts: new Set<PlatformId>(),
   platformHandles: {
     tiktok: '',
-    instagram: '@alquimio',
-    youtube: '@alquimio',
-    whatsapp: '@alquimio',
-    facebook: '@alquimio',
+    instagram: '',
+    youtube: '',
+    whatsapp: '',
+    facebook: '',
   },
   aiLoading: false,
   publishSession: null,
@@ -163,9 +163,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       // Auto-activate when linked
       const nextActive = new Set(state.activePlatforms);
       nextActive.add(id);
-      const nextHandles = handle
-        ? { ...state.platformHandles, [id]: handle }
-        : state.platformHandles;
+      const cleanHandle = typeof handle === 'string' ? handle.trim() : '';
+      const nextHandles = { ...state.platformHandles, [id]: cleanHandle };
       return {
         linkedAccounts: next,
         activePlatforms: nextActive,
@@ -178,7 +177,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       next.delete(id);
       const nextActive = new Set(state.activePlatforms);
       nextActive.delete(id);
-      return { linkedAccounts: next, activePlatforms: nextActive };
+      const nextHandles = { ...state.platformHandles, [id]: '' };
+      return { linkedAccounts: next, activePlatforms: nextActive, platformHandles: nextHandles };
     }),
 
   // ── Sesión de publicación ────────────────────────────────────

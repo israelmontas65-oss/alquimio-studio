@@ -29,7 +29,7 @@ export class YouTubeAdapter extends BaseAdapter {
       `${YT_UPLOAD_BASE}/videos?uploadType=resumable&part=snippet,status`,
       {
         snippet: {
-          title: 'Alquimio Short',
+          title: 'Alquimia Short',
           description: '',
           tags: [],
           categoryId: '22', // People & Blogs
@@ -83,7 +83,7 @@ export class YouTubeAdapter extends BaseAdapter {
     token: string
   ): Promise<string> {
     const ytSettings = payload.platformSettings['youtube'];
-    const title = (ytSettings?.title ?? payload.caption.substring(0, 100)) || 'Alquimio Short';
+    const title = (ytSettings?.title ?? payload.caption.substring(0, 100)) || 'Alquimia Short';
     const description = [payload.caption, ...payload.hashtags].join(' ');
 
     await axios.put(
