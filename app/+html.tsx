@@ -44,6 +44,12 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
         <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
 
+        {/* Verificación de Dominio Oficial para TikTok for Developers */}
+        <meta
+          name="tiktok-developers-site-verification"
+          content="AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg"
+        />
+
         <ScrollViewStyleReset />
 
         <style
