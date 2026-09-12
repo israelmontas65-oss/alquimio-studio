@@ -71,7 +71,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     }
 
     const host = new URL(context.request.url).origin;
-    const statusUrl = `${host}/data-deletion.html?code=${encodeURIComponent(confirmationCode)}&id=${encodeURIComponent(userId)}`;
+    const statusUrl = `${host}/eliminar-datos.html?code=${encodeURIComponent(confirmationCode)}&id=${encodeURIComponent(userId)}`;
 
     return new Response(
       JSON.stringify({
