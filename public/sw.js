@@ -3,7 +3,7 @@
 // Sistema de Auto-Actualización Transparente (Cero Reinstalaciones)
 // ================================================================
 
-const CACHE_NAME = 'alquimia-v1.1.0-' + Date.now();
+const CACHE_NAME = 'alquimia-v1.1.1-build-20260912';
 
 const CORE_ASSETS = [
   '/',
