@@ -36,6 +36,7 @@ export async function onRequest(context: EventContext): Promise<Response> {
   // ── Verificación oficial de TikTok Developers (Cero Redirecciones 308) ────────
   if (
     path.startsWith('/tiktok-developers-site-verification') ||
+    path.includes('AH2WYDULKCntnmYU23QR2ICjQ4nnybEq') ||
     path.includes('AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg')
   ) {
     const isHtml = path.endsWith('.html') || !path.includes('.');
@@ -45,15 +46,16 @@ export async function onRequest(context: EventContext): Promise<Response> {
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
+  <meta name="tiktok-developers-site-verification" content="AH2WYDULKCntnmYU23QR2ICjQ4nnybEq" />
+  <meta name="tiktok-developers-site-verification" content="tiktok-developers-site-verification=AH2WYDULKCntnmYU23QR2ICjQ4nnybEq" />
   <meta name="tiktok-developers-site-verification" content="AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg" />
-  <meta name="tiktok-developers-site-verification" content="tiktok-developers-site-verification=AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg" />
   <title>TikTok Developer Verification — Alquimia Studio</title>
 </head>
 <body>
-tiktok-developers-site-verification=AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg
+tiktok-developers-site-verification=AH2WYDULKCntnmYU23QR2ICjQ4nnybEq
 </body>
 </html>`
-      : `tiktok-developers-site-verification=AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg\n`;
+      : `tiktok-developers-site-verification=AH2WYDULKCntnmYU23QR2ICjQ4nnybEq\n`;
 
     return new Response(bodyContent, {
       status: 200,

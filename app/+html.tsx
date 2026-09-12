@@ -47,11 +47,15 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Verificación de Dominio Oficial para TikTok for Developers */}
         <meta
           name="tiktok-developers-site-verification"
-          content="AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg"
+          content="AH2WYDULKCntnmYU23QR2ICjQ4nnybEq"
         />
         <meta
           name="tiktok-developers-site-verification"
-          content="tiktok-developers-site-verification=AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg"
+          content="tiktok-developers-site-verification=AH2WYDULKCntnmYU23QR2ICjQ4nnybEq"
+        />
+        <meta
+          name="tiktok-developers-site-verification"
+          content="AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg"
         />
 
         <ScrollViewStyleReset />
@@ -129,6 +133,9 @@ export default function Root({ children }: PropsWithChildren) {
       </head>
       <body>
         <div style={{ display: 'none' }} id="tiktok-developers-site-verification">
+          tiktok-developers-site-verification=AH2WYDULKCntnmYU23QR2ICjQ4nnybEq
+        </div>
+        <div style={{ display: 'none' }}>
           tiktok-developers-site-verification=AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg
         </div>
         {children}
