@@ -387,24 +387,8 @@ export function MusicalNotesSvg({ size = 22, color = '#00FF7F' }: IconProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Circle
-        cx="6"
-        cy="18"
-        r="3"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle
-        cx="18"
-        cy="16"
-        r="3"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Circle cx="6" cy="18" r="3" fill={color} />
+      <Circle cx="18" cy="16" r="3" fill={color} />
     </Svg>
   );
 }

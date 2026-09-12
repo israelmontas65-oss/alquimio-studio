@@ -3,7 +3,17 @@
 // Sistema de Auto-Actualización Transparente (Cero Reinstalaciones)
 // ================================================================
 
-const CACHE_NAME = 'alquimia-v1.1.1-build-20260912';
+/**
+ * CACHE_NAME: Identificador único de caché para la PWA de Alquimia Studio.
+ * 
+ * NOTA DE MANTENIMIENTO OBLIGATORIA:
+ * Este identificador DEBE incrementarse o actualizarse con la versión / build
+ * correspondiente en cada nuevo despliegue a producción. Al cambiar el valor,
+ * el evento 'activate' purgará de inmediato todas las cachés anteriores,
+ * garantizando que los usuarios reciban los activos más recientes y evitando
+ * que queden retenidos en versiones viejas por stale-while-revalidate.
+ */
+const CACHE_NAME = 'alquimia-v1.1.2-build-20260912';
 
 const CORE_ASSETS = [
   '/',
@@ -14,13 +24,32 @@ const CORE_ASSETS = [
   '/terms.html',
   '/eliminar-datos.html',
   '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  '/icons/icon-512.png',
+  '/icons/icon-192-maskable.png',
+  '/icons/icon-512-maskable.png'
 ];
 
 self.addEventListener('install', (e) => {
-  // Pre-cargar activos clave y forzar activación inmediata sin esperar
+  // Pre-cargar activos clave de forma resiliente y forzar activación inmediata sin esperar
   e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const results = await Promise.allSettled(
+        CORE_ASSETS.map(async (asset) => {
+          try {
+            const res = await fetch(asset);
+            if (!res || !res.ok) {
+              throw new Error(`HTTP ${res ? res.status : 'desconocido'}`);
+            }
+            await cache.put(asset, res);
+          } catch (err) {
+            console.warn(`[SW] Advertencia: No se pudo precachear el asset "${asset}":`, err && err.message ? err.message : err);
+            throw err;
+          }
+        })
+      );
+      const exitosos = results.filter((r) => r.status === 'fulfilled').length;
+      console.log(`[SW] Precache completado: ${exitosos}/${CORE_ASSETS.length} activos cacheados con éxito.`);
+    })
   );
   self.skipWaiting();
 });
@@ -32,7 +61,7 @@ self.addEventListener('activate', (e) => {
       Promise.all(
         keys.map((k) => {
           if (k !== CACHE_NAME) {
-            console.log('SW: Purgando caché obsoleta:', k);
+            console.log('[SW] Purgando caché obsoleta:', k);
             return caches.delete(k);
           }
         })
@@ -56,7 +85,11 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
-  if (url.protocol.startsWith('chrome-extension') || url.pathname.includes('/api/')) {
+  if (
+    url.protocol.startsWith('chrome-extension') ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/webhooks/')
+  ) {
     return;
   }
 
