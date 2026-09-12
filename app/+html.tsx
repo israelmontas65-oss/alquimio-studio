@@ -49,6 +49,10 @@ export default function Root({ children }: PropsWithChildren) {
           name="tiktok-developers-site-verification"
           content="AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg"
         />
+        <meta
+          name="tiktok-developers-site-verification"
+          content="tiktok-developers-site-verification=AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg"
+        />
 
         <ScrollViewStyleReset />
 
@@ -123,7 +127,12 @@ export default function Root({ children }: PropsWithChildren) {
           }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <div style={{ display: 'none' }} id="tiktok-developers-site-verification">
+          tiktok-developers-site-verification=AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg
+        </div>
+        {children}
+      </body>
     </html>
   );
 }

@@ -33,6 +33,38 @@ export async function onRequest(context: EventContext): Promise<Response> {
   const url = new URL(context.request.url);
   const path = url.pathname;
 
+  // ── Verificación oficial de TikTok Developers (Cero Redirecciones 308) ────────
+  if (
+    path.startsWith('/tiktok-developers-site-verification') ||
+    path.includes('AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg')
+  ) {
+    const isHtml = path.endsWith('.html') || !path.includes('.');
+    const contentType = isHtml ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8';
+    const bodyContent = isHtml
+      ? `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="tiktok-developers-site-verification" content="AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg" />
+  <meta name="tiktok-developers-site-verification" content="tiktok-developers-site-verification=AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg" />
+  <title>TikTok Developer Verification — Alquimia Studio</title>
+</head>
+<body>
+tiktok-developers-site-verification=AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg
+</body>
+</html>`
+      : `tiktok-developers-site-verification=AUswPQAhEWWbcbmxvZKVeFse8IunJ1Fg\n`;
+
+    return new Response(bodyContent, {
+      status: 200,
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  }
+
   const isEliminarDatos = path === '/eliminar-datos' || path === '/eliminar-datos.html';
   const isDataDeletion = path === '/data-deletion' || path === '/data-deletion.html';
 
