@@ -1,7 +1,7 @@
 // ============================================================
 // src/components/auth/ConnectAccountModal.tsx
 // Modal de autenticación oficial y vinculación inteligente
-// Soporta Meta (FB/IG), YouTube (Google), TikTok API v2 y WhatsApp
+// Soporta Meta (FB/IG/Threads), YouTube (Google) y TikTok API v2
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
@@ -11,7 +11,6 @@ import {
   StyleSheet,
   Modal,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
@@ -24,7 +23,7 @@ import {
   TikTokSvg,
   InstagramSvg,
   YouTubeSvg,
-  WhatsAppSvg,
+  ThreadsSvg,
   FacebookSvg,
   CloseCircleSvg,
   CheckmarkCircleSvg,
@@ -34,7 +33,6 @@ import {
 import { initiateTikTokOAuth, disconnectTikTok } from '../../services/tiktokAuthService';
 import { initiateMetaOAuth, disconnectMeta, getLastMetaAccounts } from '../../services/metaAuthService';
 import { initiateYouTubeOAuth, disconnectYouTube, getLastYouTubeAccount } from '../../services/youtubeAuthService';
-import { saveWhatsAppNumber, disconnectWhatsApp, getStoredWhatsAppNumber } from '../../services/whatsappService';
 import { getToken } from '../../auth/tokenManager';
 
 // ── Paleta Espacial Alquimia ──────────────────────────────────
@@ -88,11 +86,11 @@ const PLATFORM_META: Record<
     color: '#FF0000',
     description: 'Google OAuth 2.0 con YouTube Data API v3 y subida reanudable.',
   },
-  whatsapp: {
-    name: 'WhatsApp Business',
-    SvgIcon: WhatsAppSvg,
-    color: '#25D366',
-    description: 'Envío transparente mediante Intent oficial en tu dispositivo.',
+  threads: {
+    name: 'Threads',
+    SvgIcon: ThreadsSvg,
+    color: '#FFFFFF',
+    description: 'Meta Graph API v1.0 para Threads con publicación directa.',
   },
 };
 
@@ -111,9 +109,6 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
   // Memoria de última cuenta usada
   const [lastAccount, setLastAccount] = useState<string | null>(null);
 
-  // Input exclusivo para WhatsApp
-  const [waInput, setWaInput] = useState('');
-
   useEffect(() => {
     if (!platformId) return;
 
@@ -126,17 +121,13 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
       if (platformId === 'tiktok') {
         const tk = await getToken('tiktok');
         setLastAccount(tk?.displayName || null);
-      } else if (platformId === 'facebook' || platformId === 'instagram') {
+      } else if (platformId === 'facebook' || platformId === 'instagram' || platformId === 'threads') {
         const metaAccs = await getLastMetaAccounts();
         const found = platformId === 'facebook' ? metaAccs.facebook : metaAccs.instagram;
         setLastAccount(found || null);
       } else if (platformId === 'youtube') {
         const yt = await getLastYouTubeAccount();
         setLastAccount(yt || null);
-      } else if (platformId === 'whatsapp') {
-        const num = await getStoredWhatsAppNumber();
-        setWaInput(num);
-        setLastAccount(num || null);
       }
     }
 
@@ -194,22 +185,10 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
     try {
       if (platformId === 'tiktok') {
         await initiateTikTokOAuth({ forceLogin: options?.forceLogin });
-      } else if (platformId === 'facebook' || platformId === 'instagram') {
+      } else if (platformId === 'facebook' || platformId === 'instagram' || platformId === 'threads') {
         await initiateMetaOAuth({ forceLogin: options?.forceLogin });
       } else if (platformId === 'youtube') {
         await initiateYouTubeOAuth({ forceLogin: options?.forceLogin });
-      } else if (platformId === 'whatsapp') {
-        if (!waInput.trim()) {
-          throw new Error('Por favor ingresa un número de WhatsApp válido.');
-        }
-        await saveWhatsAppNumber(waInput);
-        setStep('success');
-        setLoading(false);
-        setTimeout(() => {
-          onClose();
-          setStep('idle');
-        }, 1000);
-        return;
       }
 
       if (Platform.OS !== 'web') {
@@ -233,12 +212,10 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
     try {
       if (platformId === 'tiktok') {
         await disconnectTikTok();
-      } else if (platformId === 'facebook' || platformId === 'instagram') {
+      } else if (platformId === 'facebook' || platformId === 'instagram' || platformId === 'threads') {
         await disconnectMeta();
       } else if (platformId === 'youtube') {
         await disconnectYouTube();
-      } else if (platformId === 'whatsapp') {
-        await disconnectWhatsApp();
       }
     } finally {
       setLoading(false);
@@ -416,11 +393,11 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                     </>
                   )}
 
-                  {(platformId === 'facebook' || platformId === 'instagram') && (
+                  {(platformId === 'facebook' || platformId === 'instagram' || platformId === 'threads') && (
                     <>
                       <Text style={s.explainer}>
-                        Inicia sesión con Meta para conectar tu Página de Facebook y tu cuenta de
-                        Instagram Business asociada con permisos de publicación permanente.
+                        Inicia sesión con Meta para conectar tu Página de Facebook, cuenta de
+                        Instagram Business o cuenta de Threads con permisos de publicación oficial.
                       </Text>
 
                       <TouchableOpacity
@@ -443,7 +420,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                             <Text style={s.oauthText}>
                               {loading && loadingMode === 'normal'
                                 ? 'Abriendo Meta...'
-                                : 'Conectar con Meta (Facebook & Instagram)'}
+                                : 'Conectar con Meta (Facebook, Instagram & Threads)'}
                             </Text>
                           </View>
                         </LinearGradient>
@@ -462,7 +439,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
 
                       <Text style={s.auditNotice}>
                         🔒 Permisos requeridos: pages_show_list, pages_manage_posts,
-                        instagram_content_publish. En modo desarrollo requiere rol de evaluador en
+                        instagram_content_publish, threads_basic, threads_content_publish. En modo desarrollo requiere rol de evaluador en
                         el portal de Meta.
                       </Text>
                     </>
@@ -516,58 +493,6 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                         🔒 Scope restringido: youtube.upload. En fase de pruebas de Google Cloud, tu
                         correo debe estar registrado en la lista de 'Usuarios de prueba' de la
                         pantalla de consentimiento.
-                      </Text>
-                    </>
-                  )}
-
-                  {platformId === 'whatsapp' && (
-                    <>
-                      <Text style={s.explainer}>
-                        Alquimia utiliza el protocolo oficial de Intent de WhatsApp en tu
-                        dispositivo (Ruta B). Abre la aplicación lista con tu contenido para que
-                        confirmes el envío manualmente con un solo toque.
-                      </Text>
-
-                      <View style={s.waInputWrap}>
-                        <Text style={s.waLabel}>Número o contacto predeterminado (opcional):</Text>
-                        <TextInput
-                          value={waInput}
-                          onChangeText={setWaInput}
-                          placeholder="+1 (829) 123-4567 o déjalo vacío para elegir chat"
-                          placeholderTextColor={C.textMuted}
-                          style={s.input}
-                          keyboardType="phone-pad"
-                          editable={!loading}
-                        />
-                      </View>
-
-                      <TouchableOpacity
-                        onPress={() => handleConnect()}
-                        disabled={loading}
-                        style={s.oauthBtn}
-                      >
-                        <LinearGradient
-                          colors={['#25D366', '#128C7E']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={s.oauthGradient}
-                        >
-                          <View style={s.oauthInner}>
-                            {loading ? (
-                              <ActivityIndicator size="small" color={C.white} />
-                            ) : (
-                              <WhatsAppSvg size={20} />
-                            )}
-                            <Text style={s.oauthText}>
-                              {loading ? 'Guardando...' : 'Activar WhatsApp en Alquimia'}
-                            </Text>
-                          </View>
-                        </LinearGradient>
-                      </TouchableOpacity>
-
-                      <Text style={s.disclaimer}>
-                        ℹ️ Transparencia total: La app reportará 'Acción requerida' para que
-                        confirmes el envío en la app oficial de WhatsApp, sin reportes falsos.
                       </Text>
                     </>
                   )}
@@ -865,23 +790,5 @@ const s = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
-  },
-  waInputWrap: {
-    marginBottom: 14,
-  },
-  waLabel: {
-    color: C.textMuted,
-    fontSize: 12,
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 10,
-    color: C.white,
-    fontSize: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
   },
 });

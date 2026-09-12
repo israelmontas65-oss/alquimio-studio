@@ -7,8 +7,8 @@ export type PlatformId =
   | 'tiktok'
   | 'instagram'
   | 'youtube'
-  | 'whatsapp'
-  | 'facebook';
+  | 'facebook'
+  | 'threads';
 
 export interface PlatformConfig {
   id: PlatformId;

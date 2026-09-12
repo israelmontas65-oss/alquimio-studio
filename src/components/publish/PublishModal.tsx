@@ -1,7 +1,7 @@
 // ============================================================
 // src/components/publish/PublishModal.tsx
-// Modal futurista de progreso con iconografía SVG 100% pura
-// Manejo honesto de estado: action_required en WhatsApp y aviso Sandbox
+// Modal de progreso de publicación en bloque
+// Manejo honesto de estado y aviso Sandbox
 // ============================================================
 
 import React from 'react';
@@ -24,7 +24,7 @@ import {
   TikTokSvg,
   InstagramSvg,
   YouTubeSvg,
-  WhatsAppSvg,
+  ThreadsSvg,
   FacebookSvg,
   CloseCircleSvg,
   CheckmarkCircleSvg,
@@ -37,8 +37,8 @@ const PLATFORM_SVGS: Record<string, React.ComponentType<{ size?: number }>> = {
   tiktok: TikTokSvg,
   instagram: InstagramSvg,
   youtube: YouTubeSvg,
-  whatsapp: WhatsAppSvg,
   facebook: FacebookSvg,
+  threads: ThreadsSvg,
 };
 
 const C = {
@@ -90,7 +90,7 @@ function statusText(status: PlatformPublishResult['status'], progress: number): 
     case 'success':
       return '✅ Publicado y verificado con éxito';
     case 'action_required':
-      return '⚠️ WhatsApp abierto — confirma el envío en la app';
+      return '⚠️ Acción requerida en la aplicación oficial';
     case 'error':
       return '❌ Error en la publicación';
     default:
@@ -174,7 +174,7 @@ function PlatformProgressRow({ result }: { result: PlatformPublishResult }) {
           </Text>
         )}
 
-        {/* Botón interactivo para WhatsApp: Acción requerida */}
+        {/* Botón interactivo: Acción requerida */}
         {isActionReq && (
           <TouchableOpacity
             onPress={() =>
@@ -187,7 +187,7 @@ function PlatformProgressRow({ result }: { result: PlatformPublishResult }) {
             style={row.actionConfirmBtn}
           >
             <CheckmarkCircleSvg size={14} color={C.green} />
-            <Text style={row.actionConfirmText}>Marcar como enviado en WhatsApp</Text>
+            <Text style={row.actionConfirmText}>Marcar como completado</Text>
           </TouchableOpacity>
         )}
 

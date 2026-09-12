@@ -64,7 +64,7 @@ import {
   TikTokSvg,
   InstagramSvg,
   YouTubeSvg,
-  WhatsAppSvg,
+  ThreadsSvg,
   FacebookSvg,
   CloudUploadSvg,
 } from '../components/ui/SocialIcons';
@@ -677,8 +677,8 @@ const PLATFORMS = [
   { id: 'tiktok', label: 'TikTok', sub: 'Toca para conectar', color: '#00F2FE', SvgIcon: TikTokSvg },
   { id: 'instagram', label: 'Reels de Instagram', sub: 'Toca para conectar', color: '#E1306C', SvgIcon: InstagramSvg },
   { id: 'youtube', label: 'Cortometrajes de YouTube', sub: 'Toca para conectar', color: '#FF0000', SvgIcon: YouTubeSvg },
-  { id: 'whatsapp', label: 'WhatsApp', sub: 'Toca para conectar', color: '#25D366', SvgIcon: WhatsAppSvg },
   { id: 'facebook', label: 'Facebook', sub: 'Toca para conectar', color: '#1877F2', SvgIcon: FacebookSvg },
+  { id: 'threads', label: 'Threads', sub: 'Toca para conectar', color: '#FFFFFF', SvgIcon: ThreadsSvg },
 ];
 
 function Zone4Platforms({
@@ -1073,7 +1073,7 @@ export default function HomeScreen() {
       await checkBackendSession();
 
       // 2. Verificar tokens locales reales guardados para todas las plataformas
-      const allPlatforms: PlatformId[] = ['tiktok', 'instagram', 'youtube', 'whatsapp', 'facebook'];
+      const allPlatforms: PlatformId[] = ['tiktok', 'instagram', 'youtube', 'facebook', 'threads'];
       for (const pid of allPlatforms) {
         const tk = await getToken(pid);
         if (tk?.accessToken) {

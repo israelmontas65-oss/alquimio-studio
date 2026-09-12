@@ -122,8 +122,8 @@ export async function getConnectedPlatforms(): Promise<PlatformId[]> {
     'tiktok',
     'instagram',
     'youtube',
-    'whatsapp',
     'facebook',
+    'threads',
   ];
 
   const connected: PlatformId[] = [];

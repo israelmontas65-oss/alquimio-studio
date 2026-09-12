@@ -64,7 +64,7 @@ export const COLORS = {
     instagramGradientStart: '#833AB4',
     instagramGradientEnd: '#F77737',
     youtube: '#FF0000',
-    whatsapp: '#25D366',
+    threads: '#FFFFFF',
     facebook: '#1877F2',
   },
 

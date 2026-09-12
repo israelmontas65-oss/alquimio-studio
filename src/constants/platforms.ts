@@ -49,18 +49,18 @@ export const PLATFORMS: Record<PlatformId, PlatformConfig> = {
     maxFileSizeMB: 256,
     requiresVertical: true,
   },
-  whatsapp: {
-    id: 'whatsapp',
-    name: 'WhatsApp Business',
-    handle: 'Estado',
-    iconName: 'logo-whatsapp',
-    iconColor: COLORS.platforms.whatsapp,
-    accentColor: COLORS.platforms.whatsapp,
+  threads: {
+    id: 'threads',
+    name: 'Threads',
+    handle: '@tu_cuenta',
+    iconName: 'logo-threads',
+    iconColor: '#FFFFFF',
+    accentColor: '#FFFFFF',
     supportsVideo: true,
     supportsImage: true,
-    supportsDocument: true,
-    maxDurationSec: 30,     // Estado = 30s
-    maxFileSizeMB: 16,
+    supportsDocument: false,
+    maxDurationSec: 300,    // 5 min
+    maxFileSizeMB: 500,
     requiresVertical: false,
   },
   facebook: {
@@ -84,6 +84,6 @@ export const PLATFORM_ORDER: PlatformId[] = [
   'tiktok',
   'instagram',
   'youtube',
-  'whatsapp',
   'facebook',
+  'threads',
 ];

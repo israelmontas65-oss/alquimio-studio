@@ -22,7 +22,57 @@ export async function generateSmartCaptions(
   // 1. Ejecutar el orquestador multi-agente para clasificar, seleccionar hashtags y ponderar con el perfil del usuario
   const orchestrated = await DistributionOrchestrator.optimizeContent(baseText, mediaType);
 
-  // 2. Si no hay API key de Gemini, utilizar el resultado enriquecido del sistema multi-agente
+  // 2. Intentar consultar primero al Cerebro Central unificado (/api/cerebro)
+  try {
+    const cerebroEndpoint =
+      typeof window !== 'undefined' && window.location?.origin
+        ? `${window.location.origin}/api/cerebro`
+        : '/api/cerebro';
+
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), 4000) : null;
+
+    const res = await fetch(cerebroEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipo: 'recomendacion_publicacion',
+        texto: baseText,
+        metadata: {
+          tipoContenido: mediaType,
+          perfilUsuario: orchestrated,
+        },
+      }),
+      signal: controller ? controller.signal : undefined,
+    });
+
+    if (timer) clearTimeout(timer);
+
+    if (res.ok) {
+      const data = (await res.json()) as {
+        resultado?: {
+          tipo: string;
+          data?: {
+            captionSugerido?: string;
+            hashtagsSugeridos?: string[];
+          };
+        };
+      };
+
+      if (data?.resultado?.tipo === 'optimizacion' && data.resultado.data?.captionSugerido) {
+        return {
+          caption: data.resultado.data.captionSugerido,
+          hashtags: data.resultado.data.hashtagsSugeridos || orchestrated.hashtags.combined,
+          orchestrated,
+        };
+      }
+    }
+  } catch {
+    // Si la función Cloudflare no está disponible (modo offline o desarrollo local),
+    // prosigue con la canalización existente sin interrumpir la experiencia.
+  }
+
+  // 3. Si no hay API key de Gemini, utilizar el resultado enriquecido del sistema multi-agente
   if (!API_KEY || !baseText.trim()) {
     // Retornamos el copy adaptado para TikTok/Reels con los hashtags de mercado balanceados
     const primaryCopy = orchestrated.platformCopies.tiktok?.caption || orchestrated.originalCaption;
@@ -33,7 +83,7 @@ export async function generateSmartCaptions(
     };
   }
 
-  // 3. Si hay API key de Gemini, incorporar el contexto de tendencias en tiempo real al prompt
+  // 4. Si hay API key de Gemini, incorporar el contexto de tendencias en tiempo real al prompt
   try {
     const marketTagsList = orchestrated.hashtags.trendingMarket.join(', #');
     const nicheTagsList = orchestrated.hashtags.nicheSpecific.join(', #');
