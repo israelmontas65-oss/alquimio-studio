@@ -320,3 +320,106 @@ export function OpenOutlineSvg({ size = 14, color = '#00FFD4' }: IconProps) {
     </Svg>
   );
 }
+
+// ── Videocam SVG (Foto / Video) ──────────────────────────────────
+export function VideocamSvg({ size = 22, color = '#00FFD4' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="2"
+        y="6"
+        width="14"
+        height="12"
+        rx="3"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M16 10l5-3v10l-5-3"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// ── Document Text SVG (Documento / Plantilla) ────────────────────
+export function DocumentTextSvg({ size = 22, color = '#F5C518' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M14 2v6h6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M8 13h8M8 17h5"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// ── Musical Notes SVG (Audio / Sonido) ───────────────────────────
+export function MusicalNotesSvg({ size = 22, color = '#00FF7F' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 18V5l12-2v13"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle
+        cx="6"
+        cy="18"
+        r="3"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle
+        cx="18"
+        cy="16"
+        r="3"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// ── Chevron Forward SVG (Flecha lateral derecha) ─────────────────
+export function ChevronForwardSvg({ size = 16, color = '#00FFD4' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 18l6-6-6-6"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}

@@ -11,12 +11,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  CloudUploadSvg,
+  CloseCircleSvg,
+  VideocamSvg,
+  DocumentTextSvg,
+  MusicalNotesSvg,
+  ChevronForwardSvg,
+} from '../ui/SocialIcons';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useMediaPicker } from '../../hooks/useMediaPicker';
-
-import { CloudUploadSvg, CloseCircleSvg } from '../ui/SocialIcons';
 
 const C = {
   bgCard: 'rgba(8, 18, 32, 0.98)',
@@ -78,7 +82,7 @@ export function UploadMenuModal({ visible, onClose }: UploadMenuModalProps) {
                 onPress={() => handleSelect(() => pickFromGallery('both'))}
               >
                 <View style={[styles.iconCircle, { borderColor: 'rgba(0,255,212,0.4)' }]}>
-                  <Ionicons name="videocam-outline" size={22} color={C.neon} />
+                  <VideocamSvg size={22} color={C.neon} />
                 </View>
                 <View style={styles.optionTexts}>
                   <Text style={styles.optionLabel}>🎬 Foto / Video</Text>
@@ -86,7 +90,7 @@ export function UploadMenuModal({ visible, onClose }: UploadMenuModalProps) {
                     Galería del dispositivo (MP4, MOV, JPG, PNG)
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={C.neon} />
+                <ChevronForwardSvg size={16} color={C.neon} />
               </TouchableOpacity>
 
               {/* Opción 2: Documento / Plantilla */}
@@ -96,7 +100,7 @@ export function UploadMenuModal({ visible, onClose }: UploadMenuModalProps) {
                 onPress={() => handleSelect(pickDocument)}
               >
                 <View style={[styles.iconCircle, { borderColor: 'rgba(245,197,24,0.4)' }]}>
-                  <Ionicons name="document-text-outline" size={22} color={C.gold} />
+                  <DocumentTextSvg size={22} color={C.gold} />
                 </View>
                 <View style={styles.optionTexts}>
                   <Text style={styles.optionLabel}>📄 Documento / Plantilla</Text>
@@ -104,7 +108,7 @@ export function UploadMenuModal({ visible, onClose }: UploadMenuModalProps) {
                     Explorador del sistema (PDF, Word, plantillas, TXT)
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={C.gold} />
+                <ChevronForwardSvg size={16} color={C.gold} />
               </TouchableOpacity>
 
               {/* Opción 3: Audio / Sonido */}
@@ -114,7 +118,7 @@ export function UploadMenuModal({ visible, onClose }: UploadMenuModalProps) {
                 onPress={() => handleSelect(pickAudio)}
               >
                 <View style={[styles.iconCircle, { borderColor: 'rgba(0,230,118,0.4)' }]}>
-                  <Ionicons name="musical-notes-outline" size={22} color="#00FF7F" />
+                  <MusicalNotesSvg size={22} color="#00FF7F" />
                 </View>
                 <View style={styles.optionTexts}>
                   <Text style={styles.optionLabel}>🎵 Audio / Sonido</Text>
@@ -122,7 +126,7 @@ export function UploadMenuModal({ visible, onClose }: UploadMenuModalProps) {
                     Pistas de sonido y locuciones (MP3, WAV, AAC)
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#00FF7F" />
+                <ChevronForwardSvg size={16} color="#00FF7F" />
               </TouchableOpacity>
             </View>
 
