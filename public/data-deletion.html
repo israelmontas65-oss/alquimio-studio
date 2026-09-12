@@ -1,16 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0; url=/eliminar-datos.html?lang=en" />
-  <title>User Data Deletion Callback & Instructions — Alquimia Studio</title>
-  <link rel="canonical" href="https://alquimia-studio.pages.dev/eliminar-datos.html?lang=en" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Confirmación de Eliminación de Datos — Alquimia Studio</title>
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
   <script>
-    window.location.replace('/eliminar-datos.html?lang=en');
+    // Preservar exactamente todos los parámetros (code, id, etc.) hacia la página final
+    const currentParams = new URLSearchParams(window.location.search);
+    const targetUrl = '/eliminar-datos.html' + (window.location.search ? window.location.search : '');
+    window.location.replace(targetUrl);
   </script>
 </head>
-<body style="background:#060A12; color:#FFFFFF; font-family:sans-serif; text-align:center; padding-top:50px;">
-  <p>Redirecting to official Data Deletion page for Alquimia Studio...</p>
-  <p><a href="/eliminar-datos.html?lang=en" style="color:#00FFD4;">Click here if not redirected automatically.</a></p>
+<body style="background:#060A12; color:#FFFFFF; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align:center; padding:50px 20px;">
+  <div style="max-width:560px; margin:0 auto; background:rgba(13,22,38,0.9); border:1px solid rgba(0,255,212,0.3); border-radius:16px; padding:32px;">
+    <h2 style="color:#00FFD4; margin-bottom:16px;">Alquimia Studio</h2>
+    <p style="color:#8EA3BF; margin-bottom:20px;">Redirigiendo al comprobante oficial de eliminación de datos...</p>
+    <p>
+      <a id="fallback-link" href="/eliminar-datos.html" style="color:#00FFD4; font-weight:700; text-decoration:none;">
+        Haz clic aquí si no redirige automáticamente →
+      </a>
+    </p>
+  </div>
+  <script>
+    document.getElementById('fallback-link').href = '/eliminar-datos.html' + (window.location.search || '');
+  </script>
 </body>
 </html>

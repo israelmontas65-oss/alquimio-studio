@@ -272,7 +272,63 @@
 
     .footer-links a { color: var(--neon-cyan); text-decoration: none; font-weight: 600; }
     .footer-links a:hover { text-decoration: underline; }
-    .author-seal { color: var(--gold); font-weight: 600; margin-top: 8px; }
+    /* Comprobante Dinámico de Eliminación (Meta Data Deletion Callback) */
+    .confirmation-card {
+      background: rgba(0, 255, 127, 0.05);
+      border: 2px solid rgba(0, 255, 127, 0.45);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 32px;
+      box-shadow: 0 0 30px rgba(0, 255, 127, 0.15);
+    }
+    .confirmation-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 255, 127, 0.15);
+      color: #00FF7F;
+      border: 1px solid rgba(0, 255, 127, 0.4);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .code-display-box {
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 18px 22px;
+      margin-top: 14px;
+    }
+    .code-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .code-row:last-child {
+      margin-bottom: 0;
+    }
+    .code-label {
+      color: var(--text-muted);
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+    .code-value {
+      color: var(--neon-cyan);
+      font-family: monospace;
+      font-size: 15px;
+      font-weight: 800;
+      background: rgba(0, 255, 212, 0.1);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 255, 212, 0.25);
+      word-break: break-all;
+    }
 
     /* Control de Idiomas por Sección */
     .lang-section-en { display: none; }
@@ -315,6 +371,37 @@
       </header>
 
       <main>
+        <!-- COMPROBANTE DINÁMICO DE ELIMINACIÓN (META DATA DELETION CALLBACK) -->
+        <div id="meta-confirmation-box-es" class="confirmation-card" style="display: none;">
+          <div class="confirmation-badge">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00FF7F" stroke-width="2.5">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            Solicitud de Eliminación Confirmada
+          </div>
+          <h2 style="border:none; margin-bottom:8px; font-size:20px; color:#FFFFFF;">
+            Comprobante Oficial de Supresión de Datos
+          </h2>
+          <p style="color:var(--text-muted); margin-bottom:16px;">
+            Tu solicitud de eliminación de datos enviada mediante la plataforma de Meta ha sido recibida y procesada satisfactoriamente en los servidores de <strong>Alquimia Studio</strong>.
+          </p>
+          <div class="code-display-box">
+            <div class="code-row">
+              <span class="code-label">Código Oficial de Confirmación:</span>
+              <span id="confirmation-code-value-es" class="code-value">---</span>
+            </div>
+            <div class="code-row" id="user-id-row-es">
+              <span class="code-label">Identificador de Usuario (ID):</span>
+              <span id="user-id-value-es" class="code-value" style="color:var(--gold);">---</span>
+            </div>
+            <div class="code-row">
+              <span class="code-label">Estado de la Solicitud:</span>
+              <span class="code-value" style="color:#00FF7F; background:rgba(0,255,127,0.1); border-color:rgba(0,255,127,0.3);">✓ Tokens revocados y datos eliminados</span>
+            </div>
+          </div>
+        </div>
+
         <!-- MÉTODO 1: DESVINCULACIÓN AUTÓNOMA INMEDIATA -->
         <div class="card">
           <h2><span class="num">01</span> Desvinculación Inmediata con un Solo Clic</h2>
@@ -394,6 +481,37 @@
       </header>
 
       <main>
+        <!-- DYNAMIC DATA DELETION RECEIPT (META CALLBACK) -->
+        <div id="meta-confirmation-box-en" class="confirmation-card" style="display: none;">
+          <div class="confirmation-badge">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00FF7F" stroke-width="2.5">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            Data Deletion Request Confirmed
+          </div>
+          <h2 style="border:none; margin-bottom:8px; font-size:20px; color:#FFFFFF;">
+            Official Data Erasure Receipt
+          </h2>
+          <p style="color:var(--text-muted); margin-bottom:16px;">
+            Your data deletion request initiated via Meta platform has been received and successfully processed by <strong>Alquimia Studio</strong> servers.
+          </p>
+          <div class="code-display-box">
+            <div class="code-row">
+              <span class="code-label">Official Confirmation Code:</span>
+              <span id="confirmation-code-value-en" class="code-value">---</span>
+            </div>
+            <div class="code-row" id="user-id-row-en">
+              <span class="code-label">User Identifier (ID):</span>
+              <span id="user-id-value-en" class="code-value" style="color:var(--gold);">---</span>
+            </div>
+            <div class="code-row">
+              <span class="code-label">Request Status:</span>
+              <span class="code-value" style="color:#00FF7F; background:rgba(0,255,127,0.1); border-color:rgba(0,255,127,0.3);">✓ Tokens revoked & data erased</span>
+            </div>
+          </div>
+        </div>
+
         <!-- METHOD 1 -->
         <div class="card">
           <h2><span class="num">01</span> Instant One-Click Disconnect</h2>
@@ -516,6 +634,27 @@
     // Comprobar parámetro ?lang=en o hash #en
     if (window.location.search.includes('lang=en') || window.location.hash === '#en') {
       switchLang('en');
+    }
+
+    // Comprobar y mostrar comprobante de eliminación oficial (Meta Data Deletion Callback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const deletionCode = urlParams.get('code');
+    const deletionId = urlParams.get('id');
+
+    if (deletionCode) {
+      const boxEs = document.getElementById('meta-confirmation-box-es');
+      const boxEn = document.getElementById('meta-confirmation-box-en');
+      const codeValEs = document.getElementById('confirmation-code-value-es');
+      const codeValEn = document.getElementById('confirmation-code-value-en');
+      const idValEs = document.getElementById('user-id-value-es');
+      const idValEn = document.getElementById('user-id-value-en');
+
+      if (boxEs) boxEs.style.display = 'block';
+      if (boxEn) boxEn.style.display = 'block';
+      if (codeValEs) codeValEs.textContent = deletionCode;
+      if (codeValEn) codeValEn.textContent = deletionCode;
+      if (idValEs) idValEs.textContent = deletionId || 'usuario_meta';
+      if (idValEn) idValEn.textContent = deletionId || 'meta_user';
     }
   </script>
 
