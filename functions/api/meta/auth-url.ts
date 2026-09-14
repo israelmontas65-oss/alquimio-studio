@@ -25,13 +25,14 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Credentials': 'true',
 };
 
-const META_AUTH_URL = 'https://www.facebook.com/v19.0/dialog/oauth';
+const META_AUTH_URL = 'https://www.facebook.com/v21.0/dialog/oauth';
 const DEFAULT_META_SCOPES = [
+  'instagram_basic',
+  'instagram_content_publish',
   'pages_show_list',
   'pages_manage_posts',
   'pages_read_engagement',
-  'instagram_basic',
-  'instagram_content_publish',
+  'business_management',
 ].join(',');
 
 export async function onRequestOptions(): Promise<Response> {

@@ -78,13 +78,59 @@ export async function onRequestPost(context: EventContext): Promise<Response> {
     );
   }
 
+  const resolvedTokens: Partial<Record<Plataforma, string>> = { ...(tokens || {}) };
+  let resolvedFbPageId = facebookPageId;
+  let resolvedIgUserId = instagramUserId;
+  let resolvedThreadsUserId = threadsUserId;
+
+  // Resolución automática de credenciales cifradas en backend si el cliente no envía tokens planos
+  try {
+    const { getDecryptedSession } = await import('../shared/session-store');
+
+    if (plataformas.includes('tiktok') && !resolvedTokens.tiktok) {
+      const ttSess = await getDecryptedSession(context.env as any, 'tiktok', context.request);
+      if (ttSess?.accessToken) {
+        resolvedTokens.tiktok = ttSess.accessToken;
+      }
+    }
+
+    if (
+      (plataformas.includes('facebook') || plataformas.includes('instagram') || plataformas.includes('threads')) &&
+      (!resolvedTokens.facebook || !resolvedTokens.instagram || !resolvedTokens.threads)
+    ) {
+      const metaSess = await getDecryptedSession(context.env as any, 'meta', context.request);
+      if (metaSess) {
+        const pageToken = (metaSess.metadata?.pageAccessToken as string) || metaSess.accessToken;
+        if (!resolvedTokens.facebook) resolvedTokens.facebook = pageToken;
+        if (!resolvedFbPageId) resolvedFbPageId = (metaSess.metadata?.pageId as string) || metaSess.userId;
+
+        if (!resolvedTokens.instagram) resolvedTokens.instagram = pageToken;
+        if (!resolvedIgUserId) {
+          resolvedIgUserId = (metaSess.metadata?.instagramId as string) || (metaSess.metadata?.pageId as string) || metaSess.userId;
+        }
+
+        if (!resolvedTokens.threads) resolvedTokens.threads = metaSess.accessToken;
+        if (!resolvedThreadsUserId) resolvedThreadsUserId = metaSess.userId;
+      }
+    }
+
+    if (plataformas.includes('youtube') && !resolvedTokens.youtube) {
+      const ytSess = await getDecryptedSession(context.env as any, 'youtube', context.request);
+      if (ytSess?.accessToken) {
+        resolvedTokens.youtube = ytSess.accessToken;
+      }
+    }
+  } catch (sessErr) {
+    console.warn('[api:publicar] Advertencia al recuperar sesiones cifradas:', sessErr);
+  }
+
   try {
     const resultado = await orquestarPublicacion(contenido, plataformas, {
       env: context.env,
-      tokens,
-      facebookPageId,
-      instagramUserId,
-      threadsUserId,
+      tokens: resolvedTokens,
+      facebookPageId: resolvedFbPageId,
+      instagramUserId: resolvedIgUserId,
+      threadsUserId: resolvedThreadsUserId,
     });
 
     return new Response(JSON.stringify(resultado), {

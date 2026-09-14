@@ -1,7 +1,8 @@
 // ============================================================
 // src/components/auth/ConnectAccountModal.tsx
-// Modal de autenticación oficial y vinculación inteligente
-// Soporta Meta (FB/IG/Threads), YouTube (Google) y TikTok API v2
+// Modal de autenticación oficial y vinculación inteligente — Alquimia Studio
+// 3 Canales Reales: Meta (Facebook + Instagram + Threads), TikTok, YouTube
+// Estados visuales: disconnected, connecting, connected, error
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
@@ -14,6 +15,7 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
+  ScrollView,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,9 +33,8 @@ import {
   RefreshSvg,
 } from '../ui/SocialIcons';
 import { initiateTikTokOAuth, disconnectTikTok } from '../../services/tiktokAuthService';
-import { initiateMetaOAuth, disconnectMeta, getLastMetaAccounts } from '../../services/metaAuthService';
-import { initiateYouTubeOAuth, disconnectYouTube, getLastYouTubeAccount } from '../../services/youtubeAuthService';
-import { getToken } from '../../auth/tokenManager';
+import { initiateMetaOAuth, disconnectMeta } from '../../services/metaAuthService';
+import { initiateYouTubeOAuth, disconnectYouTube } from '../../services/youtubeAuthService';
 
 // ── Paleta Espacial Alquimia ──────────────────────────────────
 const C = {
@@ -50,89 +51,61 @@ const C = {
   greenBg: 'rgba(0,255,127,0.1)',
   red: '#FF5B5B',
   redBg: 'rgba(255,91,91,0.1)',
+  cardBorder: 'rgba(255,255,255,0.1)',
 };
 
-// ── Metadatos por plataforma ──────────────────────────────────
-const PLATFORM_META: Record<
-  PlatformId,
-  {
-    name: string;
-    SvgIcon: React.ComponentType<{ size?: number }>;
-    color: string;
-    description: string;
-  }
-> = {
-  tiktok: {
-    name: 'TikTok',
-    SvgIcon: TikTokSvg,
-    color: '#00F2FE',
-    description: 'OAuth 2.0 PKCE con TikTok Content Posting API v2.',
-  },
-  instagram: {
-    name: 'Instagram Reels',
-    SvgIcon: InstagramSvg,
-    color: '#E1306C',
-    description: 'Meta Graph API v19 para cuentas de Instagram Business.',
-  },
-  facebook: {
-    name: 'Facebook Pages',
-    SvgIcon: FacebookSvg,
-    color: '#1877F2',
-    description: 'Meta Graph API v19 con tokens de Página permanentes.',
-  },
-  youtube: {
-    name: 'YouTube Shorts',
-    SvgIcon: YouTubeSvg,
-    color: '#FF0000',
-    description: 'Google OAuth 2.0 con YouTube Data API v3 y subida reanudable.',
-  },
-  threads: {
-    name: 'Threads',
-    SvgIcon: ThreadsSvg,
-    color: '#FFFFFF',
-    description: 'Meta Graph API v1.0 para Threads con publicación directa.',
-  },
-};
+type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 interface Props {
-  platformId: PlatformId | null;
+  platformId?: PlatformId | null;
   onClose: () => void;
 }
 
 export function ConnectAccountModal({ platformId, onClose }: Props) {
   const { linkedAccounts, platformHandles } = useAppStore();
-  const [loading, setLoading] = useState(false);
-  const [loadingMode, setLoadingMode] = useState<'normal' | 'switch'>('normal');
-  const [step, setStep] = useState<'idle' | 'connecting' | 'success'>('idle');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Memoria de última cuenta usada
-  const [lastAccount, setLastAccount] = useState<string | null>(null);
+  // Estados visuales independientes por plataforma: disconnected | connecting | connected | error
+  const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
+  const [errorPlatform, setErrorPlatform] = useState<Record<string, string | null>>({
+    meta: null,
+    tiktok: null,
+    youtube: null,
+  });
 
-  useEffect(() => {
-    if (!platformId) return;
+  // Estados calculados de conexión
+  const isMetaConnected =
+    linkedAccounts.has('facebook') ||
+    linkedAccounts.has('instagram') ||
+    linkedAccounts.has('threads');
+  const isTikTokConnected = linkedAccounts.has('tiktok');
+  const isYouTubeConnected = linkedAccounts.has('youtube');
 
-    setStep('idle');
-    setErrorMessage(null);
-    setLoading(false);
+  const metaStatus: ConnectionStatus =
+    connectingPlatform === 'meta'
+      ? 'connecting'
+      : errorPlatform.meta
+      ? 'error'
+      : isMetaConnected
+      ? 'connected'
+      : 'disconnected';
 
-    // Cargar última cuenta usada en este dispositivo
-    async function loadLastAccount() {
-      if (platformId === 'tiktok') {
-        const tk = await getToken('tiktok');
-        setLastAccount(tk?.displayName || null);
-      } else if (platformId === 'facebook' || platformId === 'instagram' || platformId === 'threads') {
-        const metaAccs = await getLastMetaAccounts();
-        const found = platformId === 'facebook' ? metaAccs.facebook : metaAccs.instagram;
-        setLastAccount(found || null);
-      } else if (platformId === 'youtube') {
-        const yt = await getLastYouTubeAccount();
-        setLastAccount(yt || null);
-      }
-    }
+  const tiktokStatus: ConnectionStatus =
+    connectingPlatform === 'tiktok'
+      ? 'connecting'
+      : errorPlatform.tiktok
+      ? 'error'
+      : isTikTokConnected
+      ? 'connected'
+      : 'disconnected';
 
-    loadLastAccount();
-  }, [platformId]);
+  const youtubeStatus: ConnectionStatus =
+    connectingPlatform === 'youtube'
+      ? 'connecting'
+      : errorPlatform.youtube
+      ? 'error'
+      : isYouTubeConnected
+      ? 'connected'
+      : 'disconnected';
 
   // Escuchar mensajes de popup OAuth en Web
   useEffect(() => {
@@ -141,98 +114,139 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
     const handleMessage = (event: MessageEvent) => {
       const type = event.data?.type;
 
-      if (
-        type === 'TIKTOK_AUTH_SUCCESS' ||
-        type === 'META_AUTH_SUCCESS' ||
-        type === 'YOUTUBE_AUTH_SUCCESS'
-      ) {
-        setErrorMessage(null);
-        setStep('success');
-        setLoading(false);
-        setTimeout(() => {
-          onClose();
-          setStep('idle');
-        }, 1200);
-      } else if (
-        type === 'TIKTOK_AUTH_ERROR' ||
-        type === 'META_AUTH_ERROR' ||
-        type === 'YOUTUBE_AUTH_ERROR'
-      ) {
-        setLoading(false);
-        setStep('idle');
-        const desc =
-          event.data?.description || event.data?.error || 'No se completó la autorización oficial.';
-        setErrorMessage(desc);
+      if (type === 'META_AUTH_SUCCESS') {
+        setConnectingPlatform(null);
+        setErrorPlatform((prev) => ({ ...prev, meta: null }));
+      } else if (type === 'TIKTOK_AUTH_SUCCESS') {
+        setConnectingPlatform(null);
+        setErrorPlatform((prev) => ({ ...prev, tiktok: null }));
+      } else if (type === 'YOUTUBE_AUTH_SUCCESS') {
+        setConnectingPlatform(null);
+        setErrorPlatform((prev) => ({ ...prev, youtube: null }));
+      } else if (type === 'META_AUTH_ERROR') {
+        setConnectingPlatform(null);
+        setErrorPlatform((prev) => ({
+          ...prev,
+          meta: event.data?.description || event.data?.error || 'Error al autorizar con Meta.',
+        }));
+      } else if (type === 'TIKTOK_AUTH_ERROR') {
+        setConnectingPlatform(null);
+        setErrorPlatform((prev) => ({
+          ...prev,
+          tiktok: event.data?.description || event.data?.error || 'Error al autorizar con TikTok.',
+        }));
+      } else if (type === 'YOUTUBE_AUTH_ERROR') {
+        setConnectingPlatform(null);
+        setErrorPlatform((prev) => ({
+          ...prev,
+          youtube: event.data?.description || event.data?.error || 'Error al autorizar con Google/YouTube.',
+        }));
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [onClose]);
+  }, []);
 
-  if (!platformId) return null;
-
-  const meta = PLATFORM_META[platformId];
-  const isLinked = linkedAccounts.has(platformId);
-  const currentHandle = platformHandles[platformId]?.trim();
-
-  // Iniciar conexión OAuth según plataforma
-  const handleConnect = async (options?: { forceLogin?: boolean }) => {
-    setErrorMessage(null);
-    setLoading(true);
-    setLoadingMode(options?.forceLogin ? 'switch' : 'normal');
-
+  // ── Handlers de Conexión ──────────────────────────────────────
+  const handleConnectMeta = async (forceLogin = false) => {
+    setErrorPlatform((prev) => ({ ...prev, meta: null }));
+    setConnectingPlatform('meta');
     try {
-      if (platformId === 'tiktok') {
-        await initiateTikTokOAuth({ forceLogin: options?.forceLogin });
-      } else if (platformId === 'facebook' || platformId === 'instagram' || platformId === 'threads') {
-        await initiateMetaOAuth({ forceLogin: options?.forceLogin });
-      } else if (platformId === 'youtube') {
-        await initiateYouTubeOAuth({ forceLogin: options?.forceLogin });
-      }
-
-      if (Platform.OS !== 'web') {
-        setStep('success');
-        setLoading(false);
-        setTimeout(() => {
-          onClose();
-          setStep('idle');
-        }, 1200);
-      }
+      await initiateMetaOAuth({ forceLogin });
     } catch (err: unknown) {
-      setLoading(false);
-      setStep('idle');
-      const msg = err instanceof Error ? err.message : 'Error al conectar con la plataforma.';
-      setErrorMessage(msg);
+      setConnectingPlatform(null);
+      const msg = err instanceof Error ? err.message : 'Error al conectar con Meta.';
+      setErrorPlatform((prev) => ({ ...prev, meta: msg }));
     }
   };
 
-  const handleDisconnect = async () => {
-    setLoading(true);
+  const handleDisconnectMeta = async () => {
+    setConnectingPlatform('meta');
     try {
-      if (platformId === 'tiktok') {
-        await disconnectTikTok();
-      } else if (platformId === 'facebook' || platformId === 'instagram' || platformId === 'threads') {
-        await disconnectMeta();
-      } else if (platformId === 'youtube') {
-        await disconnectYouTube();
-      }
+      await disconnectMeta();
     } finally {
-      setLoading(false);
-      onClose();
-      setStep('idle');
+      setConnectingPlatform(null);
     }
   };
 
-  const handleClose = () => {
-    if (loading) return;
-    onClose();
-    setStep('idle');
-    setErrorMessage(null);
+  const handleConnectTikTok = async (forceLogin = false) => {
+    setErrorPlatform((prev) => ({ ...prev, tiktok: null }));
+    setConnectingPlatform('tiktok');
+    try {
+      await initiateTikTokOAuth({ forceLogin });
+    } catch (err: unknown) {
+      setConnectingPlatform(null);
+      const msg = err instanceof Error ? err.message : 'Error al conectar con TikTok.';
+      setErrorPlatform((prev) => ({ ...prev, tiktok: msg }));
+    }
+  };
+
+  const handleDisconnectTikTok = async () => {
+    setConnectingPlatform('tiktok');
+    try {
+      await disconnectTikTok();
+    } finally {
+      setConnectingPlatform(null);
+    }
+  };
+
+  const handleConnectYouTube = async (forceLogin = false) => {
+    setErrorPlatform((prev) => ({ ...prev, youtube: null }));
+    setConnectingPlatform('youtube');
+    try {
+      await initiateYouTubeOAuth({ forceLogin });
+    } catch (err: unknown) {
+      setConnectingPlatform(null);
+      const msg = err instanceof Error ? err.message : 'Error al conectar con YouTube.';
+      setErrorPlatform((prev) => ({ ...prev, youtube: msg }));
+    }
+  };
+
+  const handleDisconnectYouTube = async () => {
+    setConnectingPlatform('youtube');
+    try {
+      await disconnectYouTube();
+    } finally {
+      setConnectingPlatform(null);
+    }
+  };
+
+  const renderStatusBadge = (status: ConnectionStatus) => {
+    switch (status) {
+      case 'connected':
+        return (
+          <View style={[s.badge, s.badgeConnected]}>
+            <CheckmarkCircleSvg size={13} color={C.green} />
+            <Text style={s.badgeConnectedText}>Conectado</Text>
+          </View>
+        );
+      case 'connecting':
+        return (
+          <View style={[s.badge, s.badgeConnecting]}>
+            <ActivityIndicator size="small" color={C.neon} />
+            <Text style={s.badgeConnectingText}>Conectando...</Text>
+          </View>
+        );
+      case 'error':
+        return (
+          <View style={[s.badge, s.badgeError]}>
+            <AlertCircleSvg size={13} color={C.red} />
+            <Text style={s.badgeErrorText}>Error</Text>
+          </View>
+        );
+      default:
+        return (
+          <View style={[s.badge, s.badgeDisconnected]}>
+            <View style={s.dotDisconnected} />
+            <Text style={s.badgeDisconnectedText}>Desconectado</Text>
+          </View>
+        );
+    }
   };
 
   return (
-    <Modal visible={!!platformId} transparent animationType="slide">
+    <Modal visible={true} transparent animationType="slide">
       <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -248,256 +262,217 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
 
               {/* Header */}
               <View style={s.header}>
-                <View
-                  style={[
-                    s.iconWrap,
-                    { backgroundColor: meta.color + '22', borderColor: meta.color + '55' },
-                  ]}
-                >
-                  <meta.SvgIcon size={26} />
-                </View>
                 <View style={s.headerText}>
-                  <Text style={s.title}>Vincular cuenta oficial</Text>
-                  <Text style={[s.subtitle, { color: meta.color }]}>{meta.name}</Text>
+                  <Text style={s.title}>Vincular Cuentas Oficiales</Text>
+                  <Text style={s.subtitle}>Autenticación OAuth 2.0 con tokens cifrados en servidor</Text>
                 </View>
-                <TouchableOpacity onPress={handleClose} style={s.closeBtn} disabled={loading}>
-                  <CloseCircleSvg size={22} />
+                <TouchableOpacity onPress={onClose} style={s.closeBtn}>
+                  <CloseCircleSvg size={24} />
                 </TouchableOpacity>
               </View>
 
-              {/* ── Estado 1: Conectada ── */}
-              {isLinked && step !== 'success' ? (
-                <View style={s.connectedState}>
-                  <View style={s.connectedBadge}>
-                    <CheckmarkCircleSvg size={18} color={C.green} />
-                    <Text style={s.connectedBadgeText}>Conectada</Text>
-                    {Boolean(currentHandle) && (
-                      <Text style={s.connectedUserText}>{currentHandle}</Text>
-                    )}
-                  </View>
-                  <Text style={s.connectedSub}>
-                    Tu cuenta oficial de {meta.name} está vinculada con permisos activos y lista
-                    para publicar desde Alquimia.
-                  </Text>
-                  <TouchableOpacity
-                    onPress={handleDisconnect}
-                    style={s.disconnectBtn}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <ActivityIndicator size="small" color={C.textMuted} />
-                    ) : (
-                      <Text style={s.disconnectText}>Desvincular cuenta y revocar acceso</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              ) : step === 'success' ? (
-                /* ── Estado 2: Éxito ── */
-                <View style={s.successState}>
-                  <View style={s.successIcon}>
-                    <CheckmarkCircleSvg size={48} color={C.green} />
-                  </View>
-                  <Text style={s.successTitle}>¡Cuenta vinculada con éxito!</Text>
-                  <Text style={s.successSub}>
-                    {meta.name} ha sido verificada y activada en tu consola de Alquimia.
-                  </Text>
-                </View>
-              ) : (
-                /* ── Estado 3: No vinculada (Formularios Oficiales) ── */
-                <>
-                  <View style={s.statusBadge}>
-                    <View style={s.statusDot} />
-                    <Text style={s.statusText}>No vinculada</Text>
-                  </View>
-
-                  {/* Tarjeta de Memoria: Última cuenta usada */}
-                  {Boolean(lastAccount) && (
-                    <View style={s.memoryCard}>
-                      <Text style={s.memoryTitle}>Última cuenta usada en este dispositivo:</Text>
-                      <Text style={s.memoryUser}>{lastAccount}</Text>
-                      <TouchableOpacity
-                        onPress={() => handleConnect({ forceLogin: false })}
-                        disabled={loading}
-                        style={s.memoryBtn}
-                      >
-                        <Text style={s.memoryBtnText}>
-                          {loading && loadingMode === 'normal'
-                            ? 'Reconectando...'
-                            : `Conectar con ${lastAccount}`}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  {/* Mensaje de Error */}
-                  {errorMessage && (
-                    <View style={s.errorBox}>
-                      <AlertCircleSvg size={18} color={C.red} />
-                      <View style={s.errorTextWrap}>
-                        <Text style={s.errorTitle}>Error de conexión</Text>
-                        <Text style={s.errorBody}>{errorMessage}</Text>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
+                {/* ── BOTÓN 1: META (Facebook + Instagram + Threads) ── */}
+                <View style={s.platformCard}>
+                  <View style={s.platformCardHeader}>
+                    <View style={s.iconsRow}>
+                      <View style={[s.iconBox, { backgroundColor: '#1877F222', borderColor: '#1877F266' }]}>
+                        <FacebookSvg size={18} />
+                      </View>
+                      <View style={[s.iconBox, { backgroundColor: '#E1306C22', borderColor: '#E1306C66' }]}>
+                        <InstagramSvg size={18} />
+                      </View>
+                      <View style={[s.iconBox, { backgroundColor: '#FFFFFF15', borderColor: '#FFFFFF44' }]}>
+                        <ThreadsSvg size={18} />
                       </View>
                     </View>
+                    <View style={s.platformTitles}>
+                      <Text style={s.platformName}>Meta</Text>
+                      <Text style={s.platformDesc}>Facebook Pages, Instagram Business & Threads</Text>
+                    </View>
+                    {renderStatusBadge(metaStatus)}
+                  </View>
+
+                  {/* Cuentas vinculadas si está conectada */}
+                  {isMetaConnected && (
+                    <View style={s.accountInfoBox}>
+                      {Boolean(platformHandles.facebook) && (
+                        <Text style={s.accountDetail}>
+                          • Facebook: <Text style={s.accountHighlight}>{platformHandles.facebook}</Text>
+                        </Text>
+                      )}
+                      {Boolean(platformHandles.instagram) && (
+                        <Text style={s.accountDetail}>
+                          • Instagram: <Text style={s.accountHighlight}>{platformHandles.instagram}</Text>
+                        </Text>
+                      )}
+                      {Boolean(platformHandles.threads) && (
+                        <Text style={s.accountDetail}>
+                          • Threads: <Text style={s.accountHighlight}>{platformHandles.threads}</Text>
+                        </Text>
+                      )}
+                    </View>
                   )}
 
-                  {/* Formulario según plataforma */}
-                  {platformId === 'tiktok' && (
-                    <>
-                      <Text style={s.explainer}>
-                        Conecta tu cuenta de TikTok mediante OAuth 2.0 oficial. Si ya tienes sesión
-                        abierta en tu navegador, la vinculación se realiza en segundos.
-                      </Text>
+                  {errorPlatform.meta && (
+                    <View style={s.errorBox}>
+                      <AlertCircleSvg size={14} color={C.red} />
+                      <Text style={s.errorText}>{errorPlatform.meta}</Text>
+                    </View>
+                  )}
 
+                  <View style={s.actionsRow}>
+                    {isMetaConnected ? (
                       <TouchableOpacity
-                        onPress={() => handleConnect({ forceLogin: false })}
-                        disabled={loading}
-                        style={s.oauthBtn}
+                        onPress={handleDisconnectMeta}
+                        disabled={metaStatus === 'connecting'}
+                        style={s.disconnectBtn}
+                      >
+                        <Text style={s.disconnectText}>Desvincular Meta</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleConnectMeta(false)}
+                        disabled={metaStatus === 'connecting'}
+                        style={s.connectBtn}
+                      >
+                        <LinearGradient
+                          colors={['#1877F2', '#0A58CA']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={s.btnGradient}
+                        >
+                          <Text style={s.btnText}>Conectar Meta</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <Text style={s.scopeNote}>
+                    Scopes: instagram_basic, instagram_content_publish, pages_show_list, pages_manage_posts, pages_read_engagement, business_management
+                  </Text>
+                </View>
+
+                {/* ── BOTÓN 2: TIKTOK ── */}
+                <View style={s.platformCard}>
+                  <View style={s.platformCardHeader}>
+                    <View style={[s.iconBox, { backgroundColor: '#00F2FE22', borderColor: '#00F2FE66' }]}>
+                      <TikTokSvg size={20} />
+                    </View>
+                    <View style={s.platformTitles}>
+                      <Text style={s.platformName}>TikTok</Text>
+                      <Text style={s.platformDesc}>TikTok Content Posting API v2 (Direct Post)</Text>
+                    </View>
+                    {renderStatusBadge(tiktokStatus)}
+                  </View>
+
+                  {isTikTokConnected && Boolean(platformHandles.tiktok) && (
+                    <View style={s.accountInfoBox}>
+                      <Text style={s.accountDetail}>
+                        • Cuenta: <Text style={s.accountHighlight}>{platformHandles.tiktok}</Text>
+                      </Text>
+                    </View>
+                  )}
+
+                  {errorPlatform.tiktok && (
+                    <View style={s.errorBox}>
+                      <AlertCircleSvg size={14} color={C.red} />
+                      <Text style={s.errorText}>{errorPlatform.tiktok}</Text>
+                    </View>
+                  )}
+
+                  <View style={s.actionsRow}>
+                    {isTikTokConnected ? (
+                      <TouchableOpacity
+                        onPress={handleDisconnectTikTok}
+                        disabled={tiktokStatus === 'connecting'}
+                        style={s.disconnectBtn}
+                      >
+                        <Text style={s.disconnectText}>Desvincular TikTok</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleConnectTikTok(false)}
+                        disabled={tiktokStatus === 'connecting'}
+                        style={s.connectBtn}
                       >
                         <LinearGradient
                           colors={['#00F2FE', '#4FACFE']}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 0 }}
-                          style={s.oauthGradient}
+                          style={s.btnGradient}
                         >
-                          <View style={s.oauthInner}>
-                            {loading && loadingMode === 'normal' ? (
-                              <ActivityIndicator size="small" color={C.white} />
-                            ) : (
-                              <TikTokSvg size={20} />
-                            )}
-                            <Text style={s.oauthText}>
-                              {loading && loadingMode === 'normal'
-                                ? 'Abriendo TikTok...'
-                                : 'Conectar con TikTok (OAuth 2.0)'}
-                            </Text>
-                          </View>
+                          <Text style={s.btnText}>Conectar TikTok</Text>
                         </LinearGradient>
                       </TouchableOpacity>
+                    )}
+                  </View>
 
-                      <TouchableOpacity
-                        onPress={() => handleConnect({ forceLogin: true })}
-                        disabled={loading}
-                        style={s.switchAccountBtn}
-                      >
-                        <RefreshSvg size={14} color="#00F2FE" />
-                        <Text style={s.switchAccountText}>
-                          Iniciar sesión con otra cuenta de TikTok
-                        </Text>
-                      </TouchableOpacity>
+                  <Text style={s.scopeNote}>
+                    Scopes: user.info.basic, video.publish, video.upload (Redirect HTTPS obligatorio)
+                  </Text>
+                </View>
 
-                      <Text style={s.auditNotice}>
-                        ⚠️ Aviso de Auditoría: En modo Sandbox de TikTok, los videos se publicarán
-                        como privados (SELF_ONLY) y la cuenta debe estar agregada en el portal de
-                        desarrolladores.
+                {/* ── BOTÓN 3: YOUTUBE ── */}
+                <View style={s.platformCard}>
+                  <View style={s.platformCardHeader}>
+                    <View style={[s.iconBox, { backgroundColor: '#FF000022', borderColor: '#FF000066' }]}>
+                      <YouTubeSvg size={20} />
+                    </View>
+                    <View style={s.platformTitles}>
+                      <Text style={s.platformName}>YouTube</Text>
+                      <Text style={s.platformDesc}>Google OAuth 2.0 & YouTube Data API v3</Text>
+                    </View>
+                    {renderStatusBadge(youtubeStatus)}
+                  </View>
+
+                  {isYouTubeConnected && Boolean(platformHandles.youtube) && (
+                    <View style={s.accountInfoBox}>
+                      <Text style={s.accountDetail}>
+                        • Canal: <Text style={s.accountHighlight}>{platformHandles.youtube}</Text>
                       </Text>
-                    </>
+                    </View>
                   )}
 
-                  {(platformId === 'facebook' || platformId === 'instagram' || platformId === 'threads') && (
-                    <>
-                      <Text style={s.explainer}>
-                        Inicia sesión con Meta para conectar tu Página de Facebook, cuenta de
-                        Instagram Business o cuenta de Threads con permisos de publicación oficial.
-                      </Text>
-
-                      <TouchableOpacity
-                        onPress={() => handleConnect({ forceLogin: false })}
-                        disabled={loading}
-                        style={s.oauthBtn}
-                      >
-                        <LinearGradient
-                          colors={['#1877F2', '#0052CC']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={s.oauthGradient}
-                        >
-                          <View style={s.oauthInner}>
-                            {loading && loadingMode === 'normal' ? (
-                              <ActivityIndicator size="small" color={C.white} />
-                            ) : (
-                              <FacebookSvg size={20} />
-                            )}
-                            <Text style={s.oauthText}>
-                              {loading && loadingMode === 'normal'
-                                ? 'Abriendo Meta...'
-                                : 'Conectar con Meta (Facebook, Instagram & Threads)'}
-                            </Text>
-                          </View>
-                        </LinearGradient>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        onPress={() => handleConnect({ forceLogin: true })}
-                        disabled={loading}
-                        style={s.switchAccountBtn}
-                      >
-                        <RefreshSvg size={14} color="#1877F2" />
-                        <Text style={[s.switchAccountText, { color: '#1877F2' }]}>
-                          Iniciar sesión con otra cuenta de Meta
-                        </Text>
-                      </TouchableOpacity>
-
-                      <Text style={s.auditNotice}>
-                        🔒 Permisos requeridos: pages_show_list, pages_manage_posts,
-                        instagram_content_publish, threads_basic, threads_content_publish. En modo desarrollo requiere rol de evaluador en
-                        el portal de Meta.
-                      </Text>
-                    </>
+                  {errorPlatform.youtube && (
+                    <View style={s.errorBox}>
+                      <AlertCircleSvg size={14} color={C.red} />
+                      <Text style={s.errorText}>{errorPlatform.youtube}</Text>
+                    </View>
                   )}
 
-                  {platformId === 'youtube' && (
-                    <>
-                      <Text style={s.explainer}>
-                        Conecta tu canal de YouTube mediante Google OAuth 2.0 oficial para publicar
-                        Shorts y videos automáticamente.
-                      </Text>
-
+                  <View style={s.actionsRow}>
+                    {isYouTubeConnected ? (
                       <TouchableOpacity
-                        onPress={() => handleConnect({ forceLogin: false })}
-                        disabled={loading}
-                        style={s.oauthBtn}
+                        onPress={handleDisconnectYouTube}
+                        disabled={youtubeStatus === 'connecting'}
+                        style={s.disconnectBtn}
+                      >
+                        <Text style={s.disconnectText}>Desvincular YouTube</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleConnectYouTube(false)}
+                        disabled={youtubeStatus === 'connecting'}
+                        style={s.connectBtn}
                       >
                         <LinearGradient
                           colors={['#FF0000', '#CC0000']}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 0 }}
-                          style={s.oauthGradient}
+                          style={s.btnGradient}
                         >
-                          <View style={s.oauthInner}>
-                            {loading && loadingMode === 'normal' ? (
-                              <ActivityIndicator size="small" color={C.white} />
-                            ) : (
-                              <YouTubeSvg size={20} />
-                            )}
-                            <Text style={s.oauthText}>
-                              {loading && loadingMode === 'normal'
-                                ? 'Abriendo Google...'
-                                : 'Conectar canal de YouTube (Google)'}
-                            </Text>
-                          </View>
+                          <Text style={s.btnText}>Conectar YouTube</Text>
                         </LinearGradient>
                       </TouchableOpacity>
+                    )}
+                  </View>
 
-                      <TouchableOpacity
-                        onPress={() => handleConnect({ forceLogin: true })}
-                        disabled={loading}
-                        style={s.switchAccountBtn}
-                      >
-                        <RefreshSvg size={14} color="#FF4444" />
-                        <Text style={[s.switchAccountText, { color: '#FF4444' }]}>
-                          Iniciar sesión con otra cuenta de Google
-                        </Text>
-                      </TouchableOpacity>
-
-                      <Text style={s.auditNotice}>
-                        🔒 Scope restringido: youtube.upload. En fase de pruebas de Google Cloud, tu
-                        correo debe estar registrado en la lista de 'Usuarios de prueba' de la
-                        pantalla de consentimiento.
-                      </Text>
-                    </>
-                  )}
-                </>
-              )}
+                  <Text style={s.scopeNote}>
+                    Scope: https://www.googleapis.com/auth/youtube.upload (Subida reanudable)
+                  </Text>
+                </View>
+              </ScrollView>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -521,8 +496,9 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.neonBorder,
     borderBottomWidth: 0,
-    padding: 24,
-    paddingBottom: 36,
+    padding: 20,
+    paddingBottom: 32,
+    maxHeight: '90%',
     position: 'relative',
   },
   tlCorner: {
@@ -570,225 +546,177 @@ const s = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
   headerText: { flex: 1 },
   title: {
     color: C.white,
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   subtitle: {
-    fontSize: 13,
-    fontWeight: '600',
+    color: C.textMuted,
+    fontSize: 12,
     marginTop: 2,
   },
   closeBtn: { padding: 4 },
-  statusBadge: {
+  scrollContent: {
+    gap: 14,
+    paddingBottom: 16,
+  },
+  platformCard: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    borderRadius: 14,
+    padding: 14,
+  },
+  platformCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 14,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FF5B5B',
-    marginRight: 6,
-  },
-  statusText: {
-    color: C.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  explainer: {
-    color: C.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 16,
-  },
-  auditNotice: {
-    color: C.goldText,
-    fontSize: 11,
-    lineHeight: 16,
-    backgroundColor: 'rgba(245,197,24,0.08)',
-    borderLeftWidth: 2,
-    borderLeftColor: C.gold,
-    padding: 10,
-    borderRadius: 6,
-    marginTop: 14,
-  },
-  disclaimer: {
-    color: C.textMuted,
-    fontSize: 11,
-    lineHeight: 15,
-    marginTop: 12,
-  },
-  oauthBtn: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: 6,
-  },
-  oauthGradient: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-  },
-  oauthInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: 10,
   },
-  oauthText: {
-    color: C.white,
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  switchAccountBtn: {
+  iconsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-    paddingVertical: 6,
-    gap: 6,
+    gap: 4,
   },
-  switchAccountText: {
-    color: '#00F2FE',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  memoryCard: {
-    backgroundColor: 'rgba(0,255,212,0.05)',
+  iconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(0,255,212,0.2)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  memoryTitle: {
-    color: C.neon,
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  memoryUser: {
+  platformTitles: { flex: 1 },
+  platformName: {
     color: C.white,
     fontSize: 15,
     fontWeight: '700',
-    marginTop: 4,
-    marginBottom: 8,
   },
-  memoryBtn: {
-    backgroundColor: 'rgba(0,255,212,0.15)',
-    paddingVertical: 8,
-    borderRadius: 8,
+  platformDesc: {
+    color: C.textMuted,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  badge: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
-  memoryBtnText: {
+  badgeConnected: {
+    backgroundColor: C.greenBg,
+    borderColor: C.green,
+    borderWidth: 1,
+  },
+  badgeConnectedText: {
+    color: C.green,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  badgeConnecting: {
+    backgroundColor: C.neonDim,
+    borderColor: C.neon,
+    borderWidth: 1,
+  },
+  badgeConnectingText: {
     color: C.neon,
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  badgeError: {
+    backgroundColor: C.redBg,
+    borderColor: C.red,
+    borderWidth: 1,
+  },
+  badgeErrorText: {
+    color: C.red,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  badgeDisconnected: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  dotDisconnected: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: C.textMuted,
+  },
+  badgeDisconnectedText: {
+    color: C.textMuted,
+    fontSize: 11,
+  },
+  accountInfoBox: {
+    backgroundColor: 'rgba(0,255,212,0.04)',
+    borderLeftWidth: 2,
+    borderLeftColor: C.neon,
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 10,
+    gap: 2,
+  },
+  accountDetail: {
+    color: C.textMuted,
+    fontSize: 11,
+  },
+  accountHighlight: {
+    color: C.white,
     fontWeight: '700',
   },
   errorBox: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: C.redBg,
     borderColor: C.red,
     borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 14,
-    alignItems: 'center',
-    gap: 10,
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 8,
   },
-  errorTextWrap: { flex: 1 },
-  errorTitle: {
-    color: C.red,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  errorBody: {
+  errorText: {
     color: '#FFA8A8',
-    fontSize: 12,
-    marginTop: 2,
-    lineHeight: 16,
+    fontSize: 11,
+    flex: 1,
   },
-  connectedState: {
-    alignItems: 'center',
+  actionsRow: {
+    marginTop: 12,
+  },
+  connectBtn: {
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  btnGradient: {
     paddingVertical: 10,
-  },
-  connectedBadge: {
-    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.greenBg,
-    borderColor: C.green,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 12,
-    gap: 8,
+    borderRadius: 10,
   },
-  connectedBadgeText: {
-    color: C.green,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  connectedUserText: {
+  btnText: {
     color: C.white,
     fontSize: 13,
     fontWeight: '700',
-  },
-  connectedSub: {
-    color: C.textMuted,
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 20,
+    letterSpacing: 0.2,
   },
   disconnectBtn: {
     borderWidth: 1,
     borderColor: 'rgba(255,91,91,0.4)',
     backgroundColor: 'rgba(255,91,91,0.08)',
     borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: 9,
     alignItems: 'center',
-    width: '100%',
   },
   disconnectText: {
     color: C.red,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
-  successState: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  successIcon: { marginBottom: 12 },
-  successTitle: {
-    color: C.white,
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 6,
-  },
-  successSub: {
-    color: C.textMuted,
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 18,
+  scopeNote: {
+    color: 'rgba(255,255,255,0.25)',
+    fontSize: 9,
+    marginTop: 6,
+    fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
   },
 });

@@ -128,46 +128,59 @@ export async function handleYouTubeAuthCallback(code: string, state: string): Pr
 }> {
   const redirectUri = getYouTubeRedirectUri();
 
-  const res = await axios.post<{
-    data?: {
-      accessToken: string;
-      refreshToken?: string;
-      expiresAt: number;
-      channel?: { id: string; title: string; customUrl: string };
-      displayName: string;
-    };
-    error?: { message: string };
-  }>('/api/youtube/token', {
-    code,
-    state,
-    redirect_uri: redirectUri,
-    grant_type: 'authorization_code',
-  });
-
-  if (res.data.error || !res.data.data) {
-    throw new Error(res.data.error?.message || 'Error al canjear credenciales de YouTube.');
+  let res: any;
+  try {
+    res = await axios.post('/api/oauth/youtube', {
+      code,
+      state,
+      redirect_uri: redirectUri,
+    });
+  } catch (oauthErr) {
+    res = await axios.post('/api/youtube/token', {
+      code,
+      state,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+    });
   }
 
-  const { accessToken, refreshToken, expiresAt, channel, displayName } = res.data.data;
+  const responseData = res.data;
+  if (!responseData || responseData.error) {
+    throw new Error(responseData?.error?.message || 'Error al canjear credenciales de YouTube.');
+  }
+
   const store = useAppStore.getState();
 
-  await saveToken('youtube', {
-    accessToken,
-    refreshToken: refreshToken || undefined,
-    expiresAt,
-    displayName,
-    userId: channel?.id,
-  });
+  // Respuesta de /api/oauth/youtube
+  if (responseData.connected) {
+    const displayName = responseData.displayName || responseData.handle || 'YouTube Channel';
+    store.linkAccount('youtube', displayName);
 
-  store.linkAccount('youtube', displayName);
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      localStorage.setItem(LAST_ACCOUNT_YT_KEY, displayName);
+    } else {
+      await SecureStore.setItemAsync(LAST_ACCOUNT_YT_KEY, displayName);
+    }
 
-  if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-    localStorage.setItem(LAST_ACCOUNT_YT_KEY, displayName);
-  } else {
-    await SecureStore.setItemAsync(LAST_ACCOUNT_YT_KEY, displayName);
+    return { displayName, channelId: responseData.userId };
   }
 
-  return { displayName, channelId: channel?.id };
+  // Respuesta legacy
+  const legacyData = responseData.data;
+  if (legacyData) {
+    const { accessToken, refreshToken, expiresAt, channel, displayName } = legacyData;
+    await saveToken('youtube', {
+      accessToken,
+      refreshToken: refreshToken || undefined,
+      expiresAt,
+      displayName,
+      userId: channel?.id,
+    });
+    store.linkAccount('youtube', displayName);
+    return { displayName, channelId: channel?.id };
+  }
+
+  return { displayName: 'YouTube Channel' };
 }
 
 export async function getValidYouTubeToken(): Promise<string | null> {

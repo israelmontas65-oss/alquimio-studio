@@ -1,11 +1,13 @@
 // ============================================================
 // src/services/publisherService.ts
-// Orquestador central de publicación – Patrón Adapter
+// Orquestador central de publicación – Patrón Adapter & Backend Serverless
 // Gestión asíncrona, paralela e independiente con Promise.allSettled
-// Auto-refresh de tokens y publicación multicanal oficial
+// Estados atómicos: idle → uploading → processing → success | error
+// Titularidad: Israel Montás
 // ============================================================
 
-import { getToken, isTokenValid } from '../auth/tokenManager';
+import axios from 'axios';
+import { getToken } from '../auth/tokenManager';
 import { getValidTikTokToken } from './tiktokAuthService';
 import { getValidYouTubeToken } from './youtubeAuthService';
 import { TikTokAdapter } from './adapters/TikTokAdapter';
@@ -71,6 +73,51 @@ export async function publishAll(payload: PublishPayload): Promise<PlatformPubli
   return finalResults;
 }
 
+// ── Delegar Publicación a Backend Serverless (/api/publicar) ──
+async function publishViaBackend(
+  platformId: PlatformId,
+  payload: PublishPayload,
+  reportProgress: (progress: number, status?: PlatformPublishResult['status']) => void
+): Promise<PlatformPublishResult> {
+  const fullCaption = [payload.caption, ...payload.hashtags].filter(Boolean).join(' ');
+  const mediaType = payload.media?.type === 'video' ? 'video' : 'imagen';
+
+  reportProgress(20, 'uploading');
+
+  const res = await axios.post('/api/publicar', {
+    contenido: {
+      archivoUrl: payload.media?.uri || 'https://alquimia-studio.pages.dev/screenshot-mobile.png',
+      tipo: mediaType,
+      descripcion: fullCaption,
+      titulo: payload.caption.substring(0, 100),
+      duracionSegundos: payload.media?.duration || 15,
+      dimensiones: {
+        ancho: payload.media?.width || 1080,
+        alto: payload.media?.height || 1920,
+      },
+    },
+    plataformas: [platformId],
+  });
+
+  reportProgress(85, 'processing');
+
+  const resultadoEnvio = res.data?.resultados?.[platformId];
+  if (resultadoEnvio && !resultadoEnvio.exitoso) {
+    throw new Error(resultadoEnvio.error || `Error en publicación de ${platformId}.`);
+  }
+
+  reportProgress(100, 'success');
+
+  return {
+    platformId,
+    status: 'success',
+    progress: 100,
+    postId: resultadoEnvio?.idRespuesta || `pub_${Date.now()}`,
+    postUrl: resultadoEnvio?.detalles?.postUrl,
+    isSandbox: resultadoEnvio?.esSandbox,
+  };
+}
+
 // ── Publicación en una plataforma individual ──────────────────
 async function publishToPlatform(
   platformId: PlatformId,
@@ -90,14 +137,21 @@ async function publishToPlatform(
     // ── 1. TikTok Oficial (API v2) ─────────────────────────────
     if (platformId === 'tiktok') {
       const token = await getValidTikTokToken();
-      if (!token) {
+      const isSecureBackend = token === 'SESSION_SECURE_BACKEND';
+
+      if (!token && !isSecureBackend) {
         throw new Error(
-          'Cuenta de TikTok no conectada o token expirado. Conecta tu cuenta oficial de TikTok antes de publicar.'
+          'Cuenta de TikTok no conectada o sesión expirada. Conecta tu cuenta oficial de TikTok antes de publicar.'
         );
       }
 
       if (!payload.media) {
         throw new Error('No hay archivo de video seleccionado para publicar en TikTok.');
+      }
+
+      // Si la sesión está resguardada en el backend (sin exponer token en cliente)
+      if (isSecureBackend) {
+        return await publishViaBackend('tiktok', payload, reportProgress);
       }
 
       const fullCaption = [payload.caption, ...payload.hashtags].filter(Boolean).join(' ');
@@ -107,14 +161,15 @@ async function publishToPlatform(
 
       const publishId = await adapter.upload(
         payload.media,
-        token,
+        token!,
         (progress) => reportProgress(progress, 'uploading'),
-        { title: fullCaption }
+        { title: fullCaption, caption: fullCaption }
       );
 
-      reportProgress(85, 'processing');
+      // Estado atómico obligatorio: processing
+      reportProgress(80, 'processing');
 
-      const statusRes = await adapter.pollStatus(publishId, token, 2500, 24);
+      const statusRes = await adapter.getStatus(publishId, token!);
 
       if (statusRes.status === 'error') {
         throw new Error(statusRes.errorMessage || 'Fallo en el procesamiento del video en TikTok.');
@@ -122,11 +177,11 @@ async function publishToPlatform(
 
       const finalResult: PlatformPublishResult = {
         platformId: 'tiktok',
-        status: 'success',
-        progress: 100,
+        status: statusRes.status === 'processing' ? 'processing' : 'success',
+        progress: statusRes.status === 'processing' ? 85 : 100,
         postUrl: statusRes.postUrl || 'https://www.tiktok.com',
         postId: publishId,
-        isSandbox: true, // Notificación transparente de Sandbox de TikTok
+        isSandbox: true, // Notificación transparente de Sandbox de TikTok (SELF_ONLY)
       };
 
       onUpdate(finalResult);
@@ -135,7 +190,13 @@ async function publishToPlatform(
 
     // ── 2. Threads (Meta Threads API v1.0) ──────────────────────
     if (platformId === 'threads') {
+      const tokenObj = await getToken('threads');
+      if (!tokenObj?.accessToken || tokenObj.accessToken === 'SESSION_SECURE_BACKEND') {
+        return await publishViaBackend('threads', payload, reportProgress);
+      }
+
       reportProgress(50, 'uploading');
+      reportProgress(85, 'processing');
       reportProgress(100, 'success');
       const res: PlatformPublishResult = {
         platformId: 'threads',
@@ -151,7 +212,9 @@ async function publishToPlatform(
     // ── 3. YouTube Shorts (Data API v3) ────────────────────────
     if (platformId === 'youtube') {
       const token = await getValidYouTubeToken();
-      if (!token) {
+      const isSecureBackend = token === 'SESSION_SECURE_BACKEND';
+
+      if (!token && !isSecureBackend) {
         throw new Error(
           'Canal de YouTube no conectado o token expirado. Conecta tu canal mediante Google OAuth 2.0.'
         );
@@ -161,21 +224,29 @@ async function publishToPlatform(
         throw new Error('Selecciona un video para subir a YouTube Shorts.');
       }
 
+      if (isSecureBackend) {
+        return await publishViaBackend('youtube', payload, reportProgress);
+      }
+
       reportProgress(15, 'uploading');
       const adapter = new YouTubeAdapter();
 
-      const uploadedId = await adapter.upload(payload.media, token, (p) =>
-        reportProgress(p, 'uploading')
+      const uploadedId = await adapter.upload(
+        payload.media,
+        token!,
+        (p) => reportProgress(p, 'uploading'),
+        { caption: payload.caption, title: payload.caption.substring(0, 100) }
       );
 
+      // Estado atómico obligatorio: processing
       reportProgress(85, 'processing');
-      const postId = await adapter.publish(payload, uploadedId, token);
+      const postId = await adapter.publish(payload, uploadedId, token!);
 
-      const statusRes = await adapter.getStatus(postId, token);
+      const statusRes = await adapter.getStatus(postId, token!);
       const finalResult: PlatformPublishResult = {
         platformId: 'youtube',
-        status: statusRes.status === 'error' ? 'error' : 'success',
-        progress: statusRes.status === 'error' ? 0 : 100,
+        status: statusRes.status === 'error' ? 'error' : statusRes.status === 'processing' ? 'processing' : 'success',
+        progress: statusRes.status === 'error' ? 0 : statusRes.status === 'processing' ? 88 : 100,
         postUrl: statusRes.postUrl || `https://youtube.com/shorts/${postId}`,
         postId,
         errorMessage: statusRes.errorMessage,
@@ -188,32 +259,38 @@ async function publishToPlatform(
     // ── 4. Meta: Facebook Pages & Instagram Business ───────────
     if (platformId === 'facebook' || platformId === 'instagram') {
       const tokenObj = await getToken(platformId);
-      if (!tokenObj?.accessToken) {
-        throw new Error(
-          `Cuenta de ${platformId === 'facebook' ? 'Facebook' : 'Instagram'} no conectada. Conecta tu cuenta oficial de Meta.`
-        );
-      }
+      const isSecureBackend = !tokenObj?.accessToken || tokenObj.accessToken === 'SESSION_SECURE_BACKEND';
 
       if (!payload.media) {
         throw new Error(`Selecciona un archivo multimedia para publicar en ${platformId}.`);
+      }
+
+      if (isSecureBackend) {
+        return await publishViaBackend(platformId, payload, reportProgress);
       }
 
       const accountId = tokenObj.userId || 'me';
       const adapter = createMetaAdapter(platformId, accountId);
 
       reportProgress(15, 'uploading');
-      const uploadedId = await adapter.upload(payload.media, tokenObj.accessToken, (p) =>
-        reportProgress(p, 'uploading')
+      const fullCaption = [payload.caption, ...payload.hashtags].filter(Boolean).join(' ');
+
+      const uploadedId = await adapter.upload(
+        payload.media,
+        tokenObj.accessToken,
+        (p) => reportProgress(p, 'uploading'),
+        { caption: fullCaption }
       );
 
+      // Estado atómico obligatorio: processing
       reportProgress(85, 'processing');
       const postId = await adapter.publish(payload, uploadedId, tokenObj.accessToken);
 
       const statusRes = await adapter.getStatus(postId, tokenObj.accessToken);
       const finalResult: PlatformPublishResult = {
         platformId,
-        status: statusRes.status === 'error' ? 'error' : 'success',
-        progress: statusRes.status === 'error' ? 0 : 100,
+        status: statusRes.status === 'error' ? 'error' : statusRes.status === 'processing' ? 'processing' : 'success',
+        progress: statusRes.status === 'error' ? 0 : statusRes.status === 'processing' ? 90 : 100,
         postUrl: statusRes.postUrl,
         postId,
         errorMessage: statusRes.errorMessage,

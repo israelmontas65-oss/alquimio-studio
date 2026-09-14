@@ -1,13 +1,13 @@
 // ============================================================
 // functions/adaptadores/salida-facebook.ts
-// Adaptador de Salida Oficial para Facebook Pages (Meta Graph API v19.0)
+// Adaptador de Salida Oficial para Facebook Pages (Meta Graph API v21.0)
 // Alquimia Studio — Titularidad: Israel Montás
 //
 // Documentación oficial:
 // - Video Publishing: https://developers.facebook.com/docs/video-api/guides/publishing
 // - Photo Publishing: https://developers.facebook.com/docs/graph-api/reference/page/photos
 // - Page Feed / Post: https://developers.facebook.com/docs/graph-api/reference/page/feed
-// - Comment Replies: https://developers.facebook.com/docs/graph-api/reference/v19.0/comment/comments
+// - Comment Replies: https://developers.facebook.com/docs/graph-api/reference/v21.0/comment/comments
 // ============================================================
 
 import type {
@@ -17,7 +17,7 @@ import type {
 } from '../shared/tipos';
 import { SimpleKVNamespace } from '../shared/idempotencia';
 
-const FB_GRAPH_API_BASE = 'https://graph.facebook.com/v19.0';
+const FB_GRAPH_API_BASE = 'https://graph.facebook.com/v21.0';
 
 export interface EnvFacebook {
   FB_PAGE_ACCESS_TOKEN?: string;

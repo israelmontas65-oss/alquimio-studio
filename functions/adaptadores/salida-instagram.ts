@@ -1,6 +1,6 @@
 // ============================================================
 // functions/adaptadores/salida-instagram.ts
-// Adaptador de Salida Oficial para Instagram Graph API (Meta v19.0)
+// Adaptador de Salida Oficial para Instagram Graph API (Meta v21.0)
 // Alquimia Studio — Titularidad: Israel Montás
 //
 // Documentación oficial:
@@ -15,7 +15,7 @@ import type {
 } from '../shared/tipos';
 import { SimpleKVNamespace } from '../shared/idempotencia';
 
-const IG_GRAPH_API_BASE = 'https://graph.facebook.com/v19.0';
+const IG_GRAPH_API_BASE = 'https://graph.facebook.com/v21.0';
 
 export interface EnvInstagram {
   INSTAGRAM_ACCESS_TOKEN?: string;

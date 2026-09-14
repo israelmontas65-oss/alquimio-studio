@@ -87,15 +87,16 @@ export async function initiateMetaOAuth(options?: { forceLogin?: boolean }): Pro
       throw new Error('Falta configurar META_APP_ID en Cloudflare Pages.');
     }
     serverState = `meta_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    // Documentación oficial: Meta Graph API v21.0 para Facebook Pages, Instagram y Business Management
     const params = new URLSearchParams({
       client_id: appId,
       redirect_uri: redirectUri,
       state: serverState,
       response_type: 'code',
-      scope: 'pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish',
+      scope: 'instagram_basic,instagram_content_publish,pages_show_list,pages_manage_posts,pages_read_engagement,business_management',
     });
     if (forceLogin) params.append('auth_type', 'rerequest');
-    authorizationUrl = `https://www.facebook.com/v19.0/dialog/oauth?${params.toString()}`;
+    authorizationUrl = `https://www.facebook.com/v21.0/dialog/oauth?${params.toString()}`;
   }
 
   await saveMetaOAuthState(serverState);
@@ -135,60 +136,75 @@ export async function handleMetaAuthCallback(code: string, state: string): Promi
 }> {
   const redirectUri = getMetaRedirectUri();
 
-  const res = await axios.post<{
-    data?: {
-      user: { id: string; name: string };
-      selectedPage?: { id: string; name: string; accessToken: string };
-      selectedInstagram?: { id: string; username: string; name: string };
-    };
-    error?: { message: string };
-  }>('/api/meta/token', {
-    code,
-    state,
-    redirect_uri: redirectUri,
-  });
-
-  if (res.data.error || !res.data.data) {
-    throw new Error(res.data.error?.message || 'Error al canjear credenciales de Meta.');
+  // 1. Invocar endpoint oficial de OAuth v21.0 con tokens resguardados en backend
+  let res: any;
+  try {
+    res = await axios.post('/api/oauth/meta', {
+      code,
+      state,
+      redirect_uri: redirectUri,
+    });
+  } catch (oauthErr) {
+    // Fallback de compatibilidad
+    res = await axios.post('/api/meta/token', {
+      code,
+      state,
+      redirect_uri: redirectUri,
+    });
   }
 
-  const { selectedPage, selectedInstagram } = res.data.data;
-  const store = useAppStore.getState();
+  const responseData = res.data;
+  if (!responseData || responseData.error) {
+    throw new Error(responseData?.error?.message || 'Error al canjear credenciales de Meta.');
+  }
 
+  const store = useAppStore.getState();
   let pageName = '';
   let igHandle = '';
 
-  // 1. Guardar y vincular Facebook Page
-  if (selectedPage) {
-    pageName = selectedPage.name;
-    await saveToken('facebook', {
-      accessToken: selectedPage.accessToken,
-      displayName: selectedPage.name,
-      userId: selectedPage.id,
-    });
-    store.linkAccount('facebook', selectedPage.name);
+  // Manejo de respuesta /api/oauth/meta (tokens resguardados en backend)
+  if (responseData.connected) {
+    pageName = responseData.facebookPage?.name || responseData.displayName || 'Página de Facebook';
+    igHandle = responseData.instagram?.username || `@${pageName.toLowerCase().replace(/\s+/g, '_')}`;
 
-    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-      localStorage.setItem(LAST_ACCOUNT_FB_KEY, selectedPage.name);
-    } else {
-      await SecureStore.setItemAsync(LAST_ACCOUNT_FB_KEY, selectedPage.name);
-    }
-  }
-
-  // 2. Guardar y vincular Instagram Business Account
-  if (selectedInstagram && selectedPage) {
-    igHandle = `@${selectedInstagram.username}`;
-    await saveToken('instagram', {
-      accessToken: selectedPage.accessToken, // El Page Access Token administra la cuenta de IG conectada
-      displayName: igHandle,
-      userId: selectedInstagram.id,
-    });
+    // Vincular en el store
+    store.linkAccount('facebook', pageName);
     store.linkAccount('instagram', igHandle);
+    store.linkAccount('threads', igHandle);
 
     if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      localStorage.setItem(LAST_ACCOUNT_FB_KEY, pageName);
       localStorage.setItem(LAST_ACCOUNT_IG_KEY, igHandle);
     } else {
+      await SecureStore.setItemAsync(LAST_ACCOUNT_FB_KEY, pageName);
       await SecureStore.setItemAsync(LAST_ACCOUNT_IG_KEY, igHandle);
+    }
+
+    return { pageName, igHandle };
+  }
+
+  // Manejo legacy /api/meta/token
+  const legacyData = responseData.data;
+  if (legacyData) {
+    const { selectedPage, selectedInstagram } = legacyData;
+    if (selectedPage) {
+      pageName = selectedPage.name;
+      await saveToken('facebook', {
+        accessToken: selectedPage.accessToken,
+        displayName: selectedPage.name,
+        userId: selectedPage.id,
+      });
+      store.linkAccount('facebook', selectedPage.name);
+    }
+    if (selectedInstagram) {
+      igHandle = `@${selectedInstagram.username}`;
+      await saveToken('instagram', {
+        accessToken: selectedPage?.accessToken || '',
+        displayName: igHandle,
+        userId: selectedInstagram.id,
+      });
+      store.linkAccount('instagram', igHandle);
+      store.linkAccount('threads', igHandle);
     }
   }
 
@@ -196,9 +212,16 @@ export async function handleMetaAuthCallback(code: string, state: string): Promi
 }
 
 export async function disconnectMeta(): Promise<void> {
+  try {
+    await axios.post('/api/oauth/session', { platform: 'meta' });
+  } catch {
+    // Silencioso si falla la llamada
+  }
   await removeToken('facebook');
   await removeToken('instagram');
+  await removeToken('threads');
   const store = useAppStore.getState();
   store.unlinkAccount('facebook');
   store.unlinkAccount('instagram');
+  store.unlinkAccount('threads');
 }

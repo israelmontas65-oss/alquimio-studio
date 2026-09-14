@@ -229,23 +229,40 @@ export async function exchangeCodeForToken(
 
   if (isWebEnvironment) {
     try {
-      const proxyRes = await axios.post<{
-        data?: {
-          access_token: string;
-          refresh_token: string;
-          expires_at: number;
-          open_id: string;
-          handle: string;
-          sessionId: string;
-          user: TikTokUserProfile;
+      let proxyRes: any;
+      try {
+        proxyRes = await axios.post('/api/oauth/tiktok', {
+          code,
+          code_verifier: codeVerifier,
+          redirect_uri: redirectUri,
+          state,
+        });
+      } catch (oauthErr) {
+        proxyRes = await axios.post('/api/tiktok/token', {
+          code,
+          code_verifier: codeVerifier,
+          redirect_uri: redirectUri,
+          state,
+        });
+      }
+
+      if (proxyRes.data?.connected) {
+        const d = proxyRes.data;
+        return {
+          access_token: 'SESSION_SECURE_BACKEND',
+          refresh_token: '',
+          expires_in: Math.max(0, Math.round(((d.expiresAt || Date.now() + 86400000) - Date.now()) / 1000)),
+          open_id: d.userId,
+          handle: d.handle || d.displayName || `@${d.userId}`,
+          sessionId: `tt_sess_${d.userId}`,
+          user: {
+            open_id: d.userId,
+            username: d.handle,
+            display_name: d.displayName,
+            avatar_url: d.avatarUrl,
+          },
         };
-        error?: { message: string };
-      }>('/api/tiktok/token', {
-        code,
-        code_verifier: codeVerifier,
-        redirect_uri: redirectUri,
-        state,
-      });
+      }
 
       if (proxyRes.data?.data?.access_token) {
         const d = proxyRes.data.data;
@@ -436,6 +453,7 @@ export async function disconnectTikTok(): Promise<void> {
 
   try {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      await axios.post('/api/oauth/session', { platform: 'tiktok' }).catch(() => {});
       await axios.post('/api/tiktok/revoke', {
         token: token?.accessToken,
         session_id: sessionId,
