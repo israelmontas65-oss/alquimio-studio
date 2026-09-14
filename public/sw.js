@@ -8,7 +8,7 @@
  * Al cambiar este valor, 'activate' purga automáticamente las cachés
  * anteriores, evitando que usuarios queden atascados en versiones viejas.
  */
-const CACHE_NAME = 'alquimia-v1.1.2-build-20260912';
+const CACHE_NAME = 'alquimia-v1.2.0-build-20260914';
 
 const CORE_ASSETS = [
   '/',

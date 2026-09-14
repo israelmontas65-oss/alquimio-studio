@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // src/constants/version.ts
 // Configuración y Trazabilidad de Versiones — Alquimia Studio
 // Titularidad y Autoría: Israel Montás
@@ -9,9 +9,9 @@ import Constants from 'expo-constants';
 export const APP_VERSION =
   Constants.expoConfig?.version ||
   process.env.EXPO_PUBLIC_APP_VERSION ||
-  '1.1.0';
+  '1.2.0';
 
-export const BUILD_DATE = '2026-09-11';
+export const BUILD_DATE = '2026-09-14';
 
 export interface ChangelogItem {
   version: string;
@@ -23,10 +23,22 @@ export interface ChangelogItem {
 
 export const CHANGELOG_HISTORY: ChangelogItem[] = [
   {
+    version: '1.2.0',
+    date: '14 de Septiembre, 2026',
+    title: 'OAuth 2.0 Multiplataforma Real & Cifrado en Backend',
+    isCurrent: true,
+    highlights: [
+      'Conexión oficial de 3 canales principales: Meta (Facebook + Instagram + Threads), TikTok y YouTube.',
+      'Cifrado nativo de tokens con Web Crypto API (AES-256-GCM / PBKDF2) en Cloudflare Pages Functions.',
+      'Protección total de credenciales sin exposición en frontend ni localStorage (zero plain token leaks).',
+      'Adaptadores de publicación atómica con validación de cuotas, limitador de tasa y estados continuos.',
+      'Modal de vinculación rediseñado con 4 estados atómicos e iconografía vectorial SVG pura.',
+    ],
+  },
+  {
     version: '1.1.0',
     date: '11 de Septiembre, 2026',
     title: 'Motor de Aprendizaje Continuo & Optimización de Rendimiento',
-    isCurrent: true,
     highlights: [
       'Radar de Tendencias en tiempo real con histórico semana a semana en Cloudflare D1 (SQL).',
       'Optimización extrema de arranque con motor Hermes AOT y carga diferida (lazy loading).',
