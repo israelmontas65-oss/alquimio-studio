@@ -1,8 +1,10 @@
-// ============================================================
+﻿// ============================================================
 // src/components/auth/ConnectAccountModal.tsx
 // Modal de autenticación oficial y vinculación inteligente — Alquimia Studio
-// 3 Canales Reales: Meta (Facebook + Instagram + Threads), TikTok, YouTube
+// 4 Canales Reales: Meta (Facebook + Instagram), Threads, TikTok, YouTube
 // Estados visuales: disconnected, connecting, connected, error
+// Redirección OAuth directa hacia /api/oauth/{plataforma}?start=1
+// Titularidad y Autoría: Israel Montás
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
@@ -30,11 +32,7 @@ import {
   CloseCircleSvg,
   CheckmarkCircleSvg,
   AlertCircleSvg,
-  RefreshSvg,
 } from '../ui/SocialIcons';
-import { initiateTikTokOAuth, disconnectTikTok } from '../../services/tiktokAuthService';
-import { initiateMetaOAuth, disconnectMeta } from '../../services/metaAuthService';
-import { initiateYouTubeOAuth, disconnectYouTube } from '../../services/youtubeAuthService';
 
 // ── Paleta Espacial Alquimia ──────────────────────────────────
 const C = {
@@ -62,23 +60,106 @@ interface Props {
 }
 
 export function ConnectAccountModal({ platformId, onClose }: Props) {
-  const { linkedAccounts, platformHandles } = useAppStore();
+  const { linkedAccounts, platformHandles, linkAccount, unlinkAccount } = useAppStore();
 
-  // Estados visuales independientes por plataforma: disconnected | connecting | connected | error
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [errorPlatform, setErrorPlatform] = useState<Record<string, string | null>>({
     meta: null,
+    threads: null,
     tiktok: null,
     youtube: null,
   });
 
+  const [sessionProfiles, setSessionProfiles] = useState<Record<string, any>>({});
+
+  // 1. Consultar estado centralizado en servidor (/api/oauth/session) y leer query params
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSessions() {
+      try {
+        const res = await fetch('/api/oauth/session', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json<Record<string, { connected: boolean; profile?: any }>>();
+          if (isMounted && data) {
+            setSessionProfiles(data);
+
+            if (data.meta?.connected) {
+              const pages = data.meta.profile?.pages ?? [];
+              const firstPage = pages[0];
+              const fbName = firstPage?.name || 'Página Meta';
+              linkAccount('facebook', fbName);
+              if (firstPage?.instagram_business_account) {
+                linkAccount('instagram', `@${firstPage.name.toLowerCase().replace(/\s+/g, '_')}`);
+              }
+            }
+            if (data.tiktok?.connected) {
+              const ttName = data.tiktok.profile?.display_name || data.tiktok.profile?.open_id || 'Usuario TikTok';
+              linkAccount('tiktok', `@${ttName}`);
+            }
+            if (data.youtube?.connected) {
+              const ytTitle = data.youtube.profile?.title || 'Canal de YouTube';
+              linkAccount('youtube', ytTitle);
+            }
+            if (data.threads?.connected) {
+              const thUser = data.threads.profile?.userId || 'Usuario Threads';
+              linkAccount('threads', `@${thUser}`);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[ConnectAccountModal] No se pudo verificar la sesión:', err);
+      }
+    }
+
+    loadSessions();
+
+    // 2. Leer query params de callback (/conectar-cuentas?platform=X&status=success|error&reason=...)
+    if (typeof window !== 'undefined' && window.location) {
+      const params = new URLSearchParams(window.location.search);
+      const cbPlatform = params.get('platform');
+      const cbStatus = params.get('status');
+      const cbReason = params.get('reason');
+
+      if (cbPlatform) {
+        if (cbStatus === 'success') {
+          setErrorPlatform((prev) => ({ ...prev, [cbPlatform]: null }));
+          loadSessions();
+        } else if (cbStatus === 'error') {
+          setErrorPlatform((prev) => ({
+            ...prev,
+            [cbPlatform]: cbReason || 'Error durante la autorización oficial.',
+          }));
+        }
+        // Limpiar query params de la barra de direcciones sin recargar
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Estados calculados de conexión
   const isMetaConnected =
+    Boolean(sessionProfiles.meta?.connected) ||
     linkedAccounts.has('facebook') ||
-    linkedAccounts.has('instagram') ||
+    linkedAccounts.has('instagram');
+
+  const isThreadsConnected =
+    Boolean(sessionProfiles.threads?.connected) ||
     linkedAccounts.has('threads');
-  const isTikTokConnected = linkedAccounts.has('tiktok');
-  const isYouTubeConnected = linkedAccounts.has('youtube');
+
+  const isTikTokConnected =
+    Boolean(sessionProfiles.tiktok?.connected) ||
+    linkedAccounts.has('tiktok');
+
+  const isYouTubeConnected =
+    Boolean(sessionProfiles.youtube?.connected) ||
+    linkedAccounts.has('youtube');
 
   const metaStatus: ConnectionStatus =
     connectingPlatform === 'meta'
@@ -86,6 +167,15 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
       : errorPlatform.meta
       ? 'error'
       : isMetaConnected
+      ? 'connected'
+      : 'disconnected';
+
+  const threadsStatus: ConnectionStatus =
+    connectingPlatform === 'threads'
+      ? 'connecting'
+      : errorPlatform.threads
+      ? 'error'
+      : isThreadsConnected
       ? 'connected'
       : 'disconnected';
 
@@ -107,106 +197,37 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
       ? 'connected'
       : 'disconnected';
 
-  // Escuchar mensajes de popup OAuth en Web
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+  // ── Handlers de Redirección OAuth Directa ─────────────────────
+  const handleConnect = (platform: 'meta' | 'threads' | 'tiktok' | 'youtube') => {
+    setErrorPlatform((prev) => ({ ...prev, [platform]: null }));
+    setConnectingPlatform(platform);
 
-    const handleMessage = (event: MessageEvent) => {
-      const type = event.data?.type;
+    if (typeof window !== 'undefined') {
+      window.location.href = `/api/oauth/${platform}?start=1`;
+    }
+  };
 
-      if (type === 'META_AUTH_SUCCESS') {
-        setConnectingPlatform(null);
-        setErrorPlatform((prev) => ({ ...prev, meta: null }));
-      } else if (type === 'TIKTOK_AUTH_SUCCESS') {
-        setConnectingPlatform(null);
-        setErrorPlatform((prev) => ({ ...prev, tiktok: null }));
-      } else if (type === 'YOUTUBE_AUTH_SUCCESS') {
-        setConnectingPlatform(null);
-        setErrorPlatform((prev) => ({ ...prev, youtube: null }));
-      } else if (type === 'META_AUTH_ERROR') {
-        setConnectingPlatform(null);
-        setErrorPlatform((prev) => ({
-          ...prev,
-          meta: event.data?.description || event.data?.error || 'Error al autorizar con Meta.',
-        }));
-      } else if (type === 'TIKTOK_AUTH_ERROR') {
-        setConnectingPlatform(null);
-        setErrorPlatform((prev) => ({
-          ...prev,
-          tiktok: event.data?.description || event.data?.error || 'Error al autorizar con TikTok.',
-        }));
-      } else if (type === 'YOUTUBE_AUTH_ERROR') {
-        setConnectingPlatform(null);
-        setErrorPlatform((prev) => ({
-          ...prev,
-          youtube: event.data?.description || event.data?.error || 'Error al autorizar con Google/YouTube.',
-        }));
+  const handleDisconnect = async (platform: 'meta' | 'threads' | 'tiktok' | 'youtube') => {
+    setConnectingPlatform(platform);
+    try {
+      await fetch(`/api/oauth/session?platform=${platform}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      setSessionProfiles((prev) => ({
+        ...prev,
+        [platform]: { connected: false },
+      }));
+
+      if (platform === 'meta') {
+        unlinkAccount('facebook');
+        unlinkAccount('instagram');
+      } else {
+        unlinkAccount(platform as PlatformId);
       }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  // ── Handlers de Conexión ──────────────────────────────────────
-  const handleConnectMeta = async (forceLogin = false) => {
-    setErrorPlatform((prev) => ({ ...prev, meta: null }));
-    setConnectingPlatform('meta');
-    try {
-      await initiateMetaOAuth({ forceLogin });
-    } catch (err: unknown) {
-      setConnectingPlatform(null);
-      const msg = err instanceof Error ? err.message : 'Error al conectar con Meta.';
-      setErrorPlatform((prev) => ({ ...prev, meta: msg }));
-    }
-  };
-
-  const handleDisconnectMeta = async () => {
-    setConnectingPlatform('meta');
-    try {
-      await disconnectMeta();
-    } finally {
-      setConnectingPlatform(null);
-    }
-  };
-
-  const handleConnectTikTok = async (forceLogin = false) => {
-    setErrorPlatform((prev) => ({ ...prev, tiktok: null }));
-    setConnectingPlatform('tiktok');
-    try {
-      await initiateTikTokOAuth({ forceLogin });
-    } catch (err: unknown) {
-      setConnectingPlatform(null);
-      const msg = err instanceof Error ? err.message : 'Error al conectar con TikTok.';
-      setErrorPlatform((prev) => ({ ...prev, tiktok: msg }));
-    }
-  };
-
-  const handleDisconnectTikTok = async () => {
-    setConnectingPlatform('tiktok');
-    try {
-      await disconnectTikTok();
-    } finally {
-      setConnectingPlatform(null);
-    }
-  };
-
-  const handleConnectYouTube = async (forceLogin = false) => {
-    setErrorPlatform((prev) => ({ ...prev, youtube: null }));
-    setConnectingPlatform('youtube');
-    try {
-      await initiateYouTubeOAuth({ forceLogin });
-    } catch (err: unknown) {
-      setConnectingPlatform(null);
-      const msg = err instanceof Error ? err.message : 'Error al conectar con YouTube.';
-      setErrorPlatform((prev) => ({ ...prev, youtube: msg }));
-    }
-  };
-
-  const handleDisconnectYouTube = async () => {
-    setConnectingPlatform('youtube');
-    try {
-      await disconnectYouTube();
+    } catch (err) {
+      console.warn('[ConnectAccountModal] Error al revocar sesión:', err);
     } finally {
       setConnectingPlatform(null);
     }
@@ -264,7 +285,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
               <View style={s.header}>
                 <View style={s.headerText}>
                   <Text style={s.title}>Vincular Cuentas Oficiales</Text>
-                  <Text style={s.subtitle}>Autenticación OAuth 2.0 con tokens cifrados en servidor</Text>
+                  <Text style={s.subtitle}>OAuth 2.0 Serverless con tokens protegidos en backend</Text>
                 </View>
                 <TouchableOpacity onPress={onClose} style={s.closeBtn}>
                   <CloseCircleSvg size={24} />
@@ -272,7 +293,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
               </View>
 
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
-                {/* ── BOTÓN 1: META (Facebook + Instagram + Threads) ── */}
+                {/* ── BOTÓN 1: META (Facebook Pages & Instagram Business) ── */}
                 <View style={s.platformCard}>
                   <View style={s.platformCardHeader}>
                     <View style={s.iconsRow}>
@@ -282,18 +303,14 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                       <View style={[s.iconBox, { backgroundColor: '#E1306C22', borderColor: '#E1306C66' }]}>
                         <InstagramSvg size={18} />
                       </View>
-                      <View style={[s.iconBox, { backgroundColor: '#FFFFFF15', borderColor: '#FFFFFF44' }]}>
-                        <ThreadsSvg size={18} />
-                      </View>
                     </View>
                     <View style={s.platformTitles}>
                       <Text style={s.platformName}>Meta</Text>
-                      <Text style={s.platformDesc}>Facebook Pages, Instagram Business & Threads</Text>
+                      <Text style={s.platformDesc}>Facebook Pages & Instagram Business</Text>
                     </View>
                     {renderStatusBadge(metaStatus)}
                   </View>
 
-                  {/* Cuentas vinculadas si está conectada */}
                   {isMetaConnected && (
                     <View style={s.accountInfoBox}>
                       {Boolean(platformHandles.facebook) && (
@@ -304,11 +321,6 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                       {Boolean(platformHandles.instagram) && (
                         <Text style={s.accountDetail}>
                           • Instagram: <Text style={s.accountHighlight}>{platformHandles.instagram}</Text>
-                        </Text>
-                      )}
-                      {Boolean(platformHandles.threads) && (
-                        <Text style={s.accountDetail}>
-                          • Threads: <Text style={s.accountHighlight}>{platformHandles.threads}</Text>
                         </Text>
                       )}
                     </View>
@@ -324,7 +336,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                   <View style={s.actionsRow}>
                     {isMetaConnected ? (
                       <TouchableOpacity
-                        onPress={handleDisconnectMeta}
+                        onPress={() => handleDisconnect('meta')}
                         disabled={metaStatus === 'connecting'}
                         style={s.disconnectBtn}
                       >
@@ -332,7 +344,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
-                        onPress={() => handleConnectMeta(false)}
+                        onPress={() => handleConnect('meta')}
                         disabled={metaStatus === 'connecting'}
                         style={s.connectBtn}
                       >
@@ -349,11 +361,71 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                   </View>
 
                   <Text style={s.scopeNote}>
-                    Scopes: instagram_basic, instagram_content_publish, pages_show_list, pages_manage_posts, pages_read_engagement, business_management
+                    Graph API v21.0: instagram_basic, instagram_content_publish, pages_manage_posts
                   </Text>
                 </View>
 
-                {/* ── BOTÓN 2: TIKTOK ── */}
+                {/* ── BOTÓN 2: THREADS (Meta Threads API v1.0) ── */}
+                <View style={s.platformCard}>
+                  <View style={s.platformCardHeader}>
+                    <View style={[s.iconBox, { backgroundColor: '#101010', borderColor: '#FFFFFF33' }]}>
+                      <ThreadsSvg size={20} />
+                    </View>
+                    <View style={s.platformTitles}>
+                      <Text style={s.platformName}>Threads</Text>
+                      <Text style={s.platformDesc}>Threads API Oficial (graph.threads.net)</Text>
+                    </View>
+                    {renderStatusBadge(threadsStatus)}
+                  </View>
+
+                  {isThreadsConnected && Boolean(platformHandles.threads) && (
+                    <View style={s.accountInfoBox}>
+                      <Text style={s.accountDetail}>
+                        • Threads: <Text style={s.accountHighlight}>{platformHandles.threads}</Text>
+                      </Text>
+                    </View>
+                  )}
+
+                  {errorPlatform.threads && (
+                    <View style={s.errorBox}>
+                      <AlertCircleSvg size={14} color={C.red} />
+                      <Text style={s.errorText}>{errorPlatform.threads}</Text>
+                    </View>
+                  )}
+
+                  <View style={s.actionsRow}>
+                    {isThreadsConnected ? (
+                      <TouchableOpacity
+                        onPress={() => handleDisconnect('threads')}
+                        disabled={threadsStatus === 'connecting'}
+                        style={s.disconnectBtn}
+                      >
+                        <Text style={s.disconnectText}>Desvincular Threads</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleConnect('threads')}
+                        disabled={threadsStatus === 'connecting'}
+                        style={s.connectBtn}
+                      >
+                        <LinearGradient
+                          colors={['#333333', '#111111']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={s.btnGradient}
+                        >
+                          <Text style={s.btnText}>Conectar Threads</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <Text style={s.scopeNote}>
+                    Scopes: threads_basic, threads_content_publish (Requiere Tech Provider Verification)
+                  </Text>
+                </View>
+
+                {/* ── BOTÓN 3: TIKTOK ── */}
                 <View style={s.platformCard}>
                   <View style={s.platformCardHeader}>
                     <View style={[s.iconBox, { backgroundColor: '#00F2FE22', borderColor: '#00F2FE66' }]}>
@@ -361,7 +433,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                     </View>
                     <View style={s.platformTitles}>
                       <Text style={s.platformName}>TikTok</Text>
-                      <Text style={s.platformDesc}>TikTok Content Posting API v2 (Direct Post)</Text>
+                      <Text style={s.platformDesc}>Content Posting API v2 (Direct Post)</Text>
                     </View>
                     {renderStatusBadge(tiktokStatus)}
                   </View>
@@ -384,7 +456,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                   <View style={s.actionsRow}>
                     {isTikTokConnected ? (
                       <TouchableOpacity
-                        onPress={handleDisconnectTikTok}
+                        onPress={() => handleDisconnect('tiktok')}
                         disabled={tiktokStatus === 'connecting'}
                         style={s.disconnectBtn}
                       >
@@ -392,7 +464,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
-                        onPress={() => handleConnectTikTok(false)}
+                        onPress={() => handleConnect('tiktok')}
                         disabled={tiktokStatus === 'connecting'}
                         style={s.connectBtn}
                       >
@@ -409,11 +481,11 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                   </View>
 
                   <Text style={s.scopeNote}>
-                    Scopes: user.info.basic, video.publish, video.upload (Redirect HTTPS obligatorio)
+                    OAuth v2 con PKCE: user.info.basic, video.publish, video.upload
                   </Text>
                 </View>
 
-                {/* ── BOTÓN 3: YOUTUBE ── */}
+                {/* ── BOTÓN 4: YOUTUBE ── */}
                 <View style={s.platformCard}>
                   <View style={s.platformCardHeader}>
                     <View style={[s.iconBox, { backgroundColor: '#FF000022', borderColor: '#FF000066' }]}>
@@ -444,7 +516,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                   <View style={s.actionsRow}>
                     {isYouTubeConnected ? (
                       <TouchableOpacity
-                        onPress={handleDisconnectYouTube}
+                        onPress={() => handleDisconnect('youtube')}
                         disabled={youtubeStatus === 'connecting'}
                         style={s.disconnectBtn}
                       >
@@ -452,7 +524,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
-                        onPress={() => handleConnectYouTube(false)}
+                        onPress={() => handleConnect('youtube')}
                         disabled={youtubeStatus === 'connecting'}
                         style={s.connectBtn}
                       >
@@ -469,7 +541,7 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
                   </View>
 
                   <Text style={s.scopeNote}>
-                    Scope: https://www.googleapis.com/auth/youtube.upload (Subida reanudable)
+                    Scope: https://www.googleapis.com/auth/youtube.upload (Offline access)
                   </Text>
                 </View>
               </ScrollView>
@@ -481,113 +553,135 @@ export function ConnectAccountModal({ platformId, onClose }: Props) {
   );
 }
 
-const CORNER = 12;
 const s = StyleSheet.create({
-  kav: { flex: 1 },
+  kav: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   overlay: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(8,12,20,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+    width: '100%',
   },
   card: {
+    width: '100%',
+    maxWidth: 500,
     backgroundColor: C.bgCard,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: C.neonBorder,
-    borderBottomWidth: 0,
-    padding: 20,
-    paddingBottom: 32,
-    maxHeight: '90%',
+    padding: 22,
     position: 'relative',
+    maxHeight: '90%',
   },
   tlCorner: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    width: CORNER,
-    height: CORNER,
-    borderTopWidth: 2,
-    borderLeftWidth: 2,
+    top: -2,
+    left: -2,
+    width: 14,
+    height: 14,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
     borderColor: C.neon,
+    borderTopLeftRadius: 4,
   },
   trCorner: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    width: CORNER,
-    height: CORNER,
-    borderTopWidth: 2,
-    borderRightWidth: 2,
+    top: -2,
+    right: -2,
+    width: 14,
+    height: 14,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
     borderColor: C.neon,
+    borderTopRightRadius: 4,
   },
   blCorner: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    width: CORNER,
-    height: CORNER,
-    borderBottomWidth: 2,
-    borderLeftWidth: 2,
+    bottom: -2,
+    left: -2,
+    width: 14,
+    height: 14,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
     borderColor: C.neon,
+    borderBottomLeftRadius: 4,
   },
   brCorner: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: CORNER,
-    height: CORNER,
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
+    bottom: -2,
+    right: -2,
+    width: 14,
+    height: 14,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
     borderColor: C.neon,
+    borderBottomRightRadius: 4,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    paddingBottom: 14,
   },
-  headerText: { flex: 1 },
+  headerText: {
+    flex: 1,
+    marginRight: 10,
+  },
   title: {
     color: C.white,
     fontSize: 18,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
   subtitle: {
     color: C.textMuted,
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 4,
+    lineHeight: 16,
   },
-  closeBtn: { padding: 4 },
+  closeBtn: {
+    padding: 4,
+  },
   scrollContent: {
     gap: 14,
-    paddingBottom: 16,
+    paddingBottom: 8,
   },
   platformCard: {
     backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: C.cardBorder,
-    borderRadius: 14,
     padding: 14,
+    gap: 10,
   },
   platformCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
   },
   iconsRow: {
     flexDirection: 'row',
-    gap: 4,
+    gap: 6,
   },
   iconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  platformTitles: { flex: 1 },
+  platformTitles: {
+    flex: 1,
+    marginLeft: 10,
+  },
   platformName: {
     color: C.white,
     fontSize: 15,
@@ -596,20 +690,18 @@ const s = StyleSheet.create({
   platformDesc: {
     color: C.textMuted,
     fontSize: 11,
-    marginTop: 1,
+    marginTop: 2,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
   },
   badgeConnected: {
     backgroundColor: C.greenBg,
-    borderColor: C.green,
-    borderWidth: 1,
   },
   badgeConnectedText: {
     color: C.green,
@@ -618,8 +710,6 @@ const s = StyleSheet.create({
   },
   badgeConnecting: {
     backgroundColor: C.neonDim,
-    borderColor: C.neon,
-    borderWidth: 1,
   },
   badgeConnectingText: {
     color: C.neon,
@@ -628,8 +718,6 @@ const s = StyleSheet.create({
   },
   badgeError: {
     backgroundColor: C.redBg,
-    borderColor: C.red,
-    borderWidth: 1,
   },
   badgeErrorText: {
     color: C.red,
@@ -637,7 +725,7 @@ const s = StyleSheet.create({
     fontWeight: '700',
   },
   badgeDisconnected: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   dotDisconnected: {
     width: 6,
@@ -648,42 +736,39 @@ const s = StyleSheet.create({
   badgeDisconnectedText: {
     color: C.textMuted,
     fontSize: 11,
+    fontWeight: '600',
   },
   accountInfoBox: {
-    backgroundColor: 'rgba(0,255,212,0.04)',
-    borderLeftWidth: 2,
-    borderLeftColor: C.neon,
+    backgroundColor: 'rgba(0,255,127,0.04)',
+    borderRadius: 8,
     padding: 8,
-    borderRadius: 6,
-    marginTop: 10,
-    gap: 2,
+    borderLeftWidth: 2,
+    borderLeftColor: C.green,
+    gap: 3,
   },
   accountDetail: {
-    color: C.textMuted,
-    fontSize: 11,
+    color: C.white,
+    fontSize: 12,
   },
   accountHighlight: {
-    color: C.white,
+    color: C.green,
     fontWeight: '700',
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     backgroundColor: C.redBg,
-    borderColor: C.red,
-    borderWidth: 1,
+    borderRadius: 8,
     padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
+    gap: 6,
   },
   errorText: {
-    color: '#FFA8A8',
+    color: C.red,
     fontSize: 11,
     flex: 1,
   },
   actionsRow: {
-    marginTop: 12,
+    marginTop: 2,
   },
   connectBtn: {
     borderRadius: 10,
@@ -692,31 +777,32 @@ const s = StyleSheet.create({
   btnGradient: {
     paddingVertical: 10,
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 10,
   },
   btnText: {
     color: C.white,
     fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 0.2,
+    letterSpacing: 0.5,
   },
   disconnectBtn: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,91,91,0.4)',
     backgroundColor: 'rgba(255,91,91,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,91,91,0.3)',
     borderRadius: 10,
-    paddingVertical: 9,
+    paddingVertical: 8,
     alignItems: 'center',
   },
   disconnectText: {
     color: C.red,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   scopeNote: {
     color: 'rgba(255,255,255,0.25)',
     fontSize: 9,
-    marginTop: 6,
-    fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginTop: 2,
   },
 });

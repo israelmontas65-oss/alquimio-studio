@@ -1,331 +1,105 @@
-// ============================================================
 // functions/shared/session-store.ts
-// Alquimia Studio — Gestión de Sesiones Cifradas en Backend (AES-256-GCM)
-// Cifra y descifra credenciales de acceso de forma segura en el servidor
-// Soporta renovación automática de tokens para TikTok, YouTube y Meta
-// Titularidad: Israel Montás
-// ============================================================
+// Motor de cifrado y almacenamiento de sesiones OAuth.
+// Usa AES-256-GCM con clave derivada por PBKDF2 a partir de SESSION_SECRET
+// (debe configurarse como Cloudflare Pages secret, NUNCA como variable en texto plano).
+// Los tokens jamás se devuelven al frontend en texto plano.
 
-export interface EncryptedSessionData {
-  platform: 'meta' | 'tiktok' | 'youtube';
-  userId: string;
-  accountName?: string;
-  accessTokenEncrypted: string;
-  refreshTokenEncrypted?: string;
-  expiresAt: number; // Unix timestamp en ms
-  scopes: string[];
-  metadata?: Record<string, unknown>;
-}
-
-export interface DecryptedSessionData {
-  platform: 'meta' | 'tiktok' | 'youtube';
-  userId: string;
-  accountName?: string;
+export interface PlatformSession {
+  platform: "meta" | "tiktok" | "youtube" | "threads";
   accessToken: string;
-  refreshToken?: string;
-  expiresAt: number;
-  scopes: string[];
-  metadata?: Record<string, unknown>;
+  refreshToken: string | null;
+  expiresAt: number; // epoch ms
+  profile: Record<string, any>;
 }
 
-interface EnvWithKv {
-  SECURITY_MASTER_KEY?: string;
-  ALQUIMIA_KV?: {
-    put: (key: string, value: string, options?: { expirationTtl?: number }) => Promise<void>;
-    get: (key: string) => Promise<string | null>;
-    delete: (key: string) => Promise<void>;
-  };
-  META_APP_ID?: string;
-  META_APP_SECRET?: string;
-  TIKTOK_CLIENT_KEY?: string;
-  TIKTOK_CLIENT_SECRET?: string;
-  GOOGLE_CLIENT_ID?: string;
-  GOOGLE_CLIENT_SECRET?: string;
+interface Env {
+  SESSIONS: KVNamespace;
+  SESSION_SECRET: string;
 }
 
-// ── Criptografía Nativa AES-256-GCM con Web Crypto API ─────────
-async function deriveKey(masterSecret: string): Promise<CryptoKey> {
+const PBKDF2_ITERATIONS = 100_000;
+
+async function deriveKey(secret: string, salt: Uint8Array): Promise<CryptoKey> {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(masterSecret),
-    { name: 'PBKDF2' },
+    "raw",
+    enc.encode(secret),
+    "PBKDF2",
     false,
-    ['deriveKey']
+    ["deriveKey"]
   );
-
-  return await crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: enc.encode('alquimia_session_aes_gcm_salt_2026'),
-      iterations: 50_000,
-      hash: 'SHA-256',
-    },
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: salt as unknown as BufferSource, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
     keyMaterial,
-    { name: 'AES-GCM', length: 256 },
+    { name: "AES-GCM", length: 256 },
     false,
-    ['encrypt', 'decrypt']
+    ["encrypt", "decrypt"]
   );
 }
 
-export async function encryptToken(token: string, masterSecret: string): Promise<string> {
-  if (!token) return '';
+async function encrypt(plainText: string, secret: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(secret, salt);
   const enc = new TextEncoder();
-  const iv = new Uint8Array(12);
-  crypto.getRandomValues(iv);
-
-  const key = await deriveKey(masterSecret);
-  const cipherBuffer = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    enc.encode(token)
-  );
-
-  const ivHex = Array.from(iv).map((b) => b.toString(16).padStart(2, '0')).join('');
-  const cipherHex = Array.from(new Uint8Array(cipherBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  return `${ivHex}:${cipherHex}`;
+  const cipherBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plainText));
+  const combined = new Uint8Array(salt.length + iv.length + cipherBuffer.byteLength);
+  combined.set(salt, 0);
+  combined.set(iv, salt.length);
+  combined.set(new Uint8Array(cipherBuffer), salt.length + iv.length);
+  return btoa(String.fromCharCode(...combined));
 }
 
-export async function decryptToken(cipherString: string, masterSecret: string): Promise<string> {
-  if (!cipherString) return '';
-  const [ivHex, cipherHex] = cipherString.split(':');
-  if (!ivHex || !cipherHex) throw new Error('Formato de token cifrado inválido.');
-
-  const iv = new Uint8Array(ivHex.match(/.{1,2}/g)?.map((b) => parseInt(b, 16)) || []);
-  const cipherBytes = new Uint8Array(cipherHex.match(/.{1,2}/g)?.map((b) => parseInt(b, 16)) || []);
-
-  const key = await deriveKey(masterSecret);
-  const plainBuffer = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    cipherBytes
-  );
-
+async function decrypt(payload: string, secret: string): Promise<string> {
+  const combined = Uint8Array.from(atob(payload), (c) => c.charCodeAt(0));
+  const salt = combined.slice(0, 16);
+  const iv = combined.slice(16, 28);
+  const cipherBytes = combined.slice(28);
+  const key = await deriveKey(secret, salt);
+  const plainBuffer = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipherBytes);
   return new TextDecoder().decode(plainBuffer);
 }
 
-// ── Obtener Clave Maestra del Servidor ─────────────────────────
-export function getMasterSecret(env: any): string {
-  return (
-    env.SECURITY_MASTER_KEY ||
-    env.TIKTOK_STATE_SECRET ||
-    env.META_STATE_SECRET ||
-    'alquimia_enterprise_master_security_key_2026'
-  );
+export async function saveSession(env: Env, session: PlatformSession): Promise<void> {
+  if (!env?.SESSIONS || !env?.SESSION_SECRET) {
+    console.warn('[session-store] SESSIONS KV o SESSION_SECRET no configurados');
+    return;
+  }
+  const payload = JSON.stringify(session);
+  const encrypted = await encrypt(payload, env.SESSION_SECRET);
+  await env.SESSIONS.put(`session:${session.platform}`, encrypted);
 }
 
-// ── Guardar Sesión Cifrada ────────────────────────────────────
-export async function saveEncryptedSession(
-  env: EnvWithKv,
-  data: DecryptedSessionData
-): Promise<{ cookieHeader: string; encryptedSession: EncryptedSessionData }> {
-  const masterSecret = getMasterSecret(env);
-  const accessTokenEncrypted = await encryptToken(data.accessToken, masterSecret);
-  const refreshTokenEncrypted = data.refreshToken
-    ? await encryptToken(data.refreshToken, masterSecret)
-    : undefined;
-
-  const encryptedSession: EncryptedSessionData = {
-    platform: data.platform,
-    userId: data.userId,
-    accountName: data.accountName,
-    accessTokenEncrypted,
-    refreshTokenEncrypted,
-    expiresAt: data.expiresAt,
-    scopes: data.scopes,
-    metadata: data.metadata,
-  };
-
-  const serialized = JSON.stringify(encryptedSession);
-
-  // 1. Guardar en Cloudflare KV si está disponible
-  if (env.ALQUIMIA_KV) {
-    try {
-      await env.ALQUIMIA_KV.put(`session:${data.platform}:${data.userId}`, serialized, {
-        expirationTtl: 365 * 24 * 3600, // 1 año
-      });
-      await env.ALQUIMIA_KV.put(`session:current:${data.platform}`, serialized, {
-        expirationTtl: 365 * 24 * 3600,
-      });
-    } catch (kvErr) {
-      console.warn('[SessionStore] Fallo al escribir en KV:', kvErr);
-    }
-  }
-
-  // 2. Generar cookie cifrada HttpOnly
-  const cookieValue = encodeURIComponent(serialized);
-  const cookieHeader = `alquimia_${data.platform}_session=${cookieValue}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000; Secure`;
-
-  return { cookieHeader, encryptedSession };
-}
-
-// ── Recuperar Sesión y Descifrar Tokens ─────────────────────────
-export async function getDecryptedSession(
-  env: EnvWithKv,
-  platform: 'meta' | 'tiktok' | 'youtube',
-  request: Request
-): Promise<DecryptedSessionData | null> {
-  const masterSecret = getMasterSecret(env);
-  let serialized: string | null = null;
-
-  // 1. Intentar leer desde KV
-  if (env.ALQUIMIA_KV) {
-    try {
-      serialized = await env.ALQUIMIA_KV.get(`session:current:${platform}`);
-    } catch {
-      serialized = null;
-    }
-  }
-
-  // 2. Fallback a Cookie cifrada de la solicitud
-  if (!serialized) {
-    const cookieHeader = request.headers.get('Cookie') || '';
-    const match = cookieHeader.match(new RegExp(`(^|;\\s*)alquimia_${platform}_session=([^;]*)`));
-    if (match) {
-      serialized = decodeURIComponent(match[2]);
-    }
-  }
-
-  if (!serialized) return null;
-
+export async function getSession(env: Env, platform: string): Promise<PlatformSession | null> {
+  if (!env?.SESSIONS || !env?.SESSION_SECRET) return null;
+  const raw = await env.SESSIONS.get(`session:${platform}`);
+  if (!raw) return null;
   try {
-    const parsed = JSON.parse(serialized) as EncryptedSessionData;
-    const accessToken = await decryptToken(parsed.accessTokenEncrypted, masterSecret);
-    const refreshToken = parsed.refreshTokenEncrypted
-      ? await decryptToken(parsed.refreshTokenEncrypted, masterSecret)
-      : undefined;
-
-    const session: DecryptedSessionData = {
-      platform: parsed.platform,
-      userId: parsed.userId,
-      accountName: parsed.accountName,
-      accessToken,
-      refreshToken,
-      expiresAt: parsed.expiresAt,
-      scopes: parsed.scopes || [],
-      metadata: parsed.metadata,
-    };
-
-    // 3. Comprobar renovación automática preventiva
-    if (platform === 'tiktok') {
-      return await ensureFreshTikTokToken(env, session);
-    } else if (platform === 'youtube') {
-      return await ensureFreshYouTubeToken(env, session);
-    }
-
-    return session;
-  } catch (err) {
-    console.error('[SessionStore] Error al descifrar sesión:', err);
+    const decrypted = await decrypt(raw, env.SESSION_SECRET);
+    return JSON.parse(decrypted) as PlatformSession;
+  } catch {
+    // Si falla el descifrado (clave rotada, dato corrupto), tratamos como sesión inexistente.
     return null;
   }
 }
 
-// ── Auto-refresco de Tokens TikTok (Expira cada 24h, refresh dura 365d) ──
-async function ensureFreshTikTokToken(
-  env: EnvWithKv,
-  session: DecryptedSessionData
-): Promise<DecryptedSessionData> {
-  const FIVE_MINUTES_MS = 5 * 60 * 1000;
-  if (session.expiresAt > Date.now() + FIVE_MINUTES_MS) {
-    return session;
-  }
+export const getDecryptedSession = getSession;
 
-  if (!session.refreshToken) {
-    return session;
-  }
-
-  const clientKey = (env.TIKTOK_CLIENT_KEY || (env as any).EXPO_PUBLIC_TIKTOK_CLIENT_KEY || '').trim();
-  const clientSecret = (env.TIKTOK_CLIENT_SECRET || (env as any).EXPO_PUBLIC_TIKTOK_CLIENT_SECRET || '').trim();
-
-  if (!clientKey || !clientSecret) {
-    return session;
-  }
-
-  try {
-    const params = new URLSearchParams({
-      client_key: clientKey,
-      client_secret: clientSecret,
-      grant_type: 'refresh_token',
-      refresh_token: session.refreshToken,
-    });
-
-    const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Cache-Control': 'no-cache',
-      },
-      body: params.toString(),
-    });
-
-    if (res.ok) {
-      const data = (await res.json()) as any;
-      if (data.data?.access_token) {
-        session.accessToken = data.data.access_token;
-        session.refreshToken = data.data.refresh_token || session.refreshToken;
-        session.expiresAt = Date.now() + (data.data.expires_in || 86400) * 1000;
-        await saveEncryptedSession(env, session);
-        console.log('[SessionStore] TikTok: Token renovado automáticamente con éxito.');
-      }
-    }
-  } catch (refreshErr) {
-    console.warn('[SessionStore] Fallo al renovar token de TikTok:', refreshErr);
-  }
-
-  return session;
+export async function deleteSession(env: Env, platform: string): Promise<void> {
+  if (!env?.SESSIONS) return;
+  await env.SESSIONS.delete(`session:${platform}`);
 }
 
-// ── Auto-refresco de Tokens Google / YouTube Data API v3 ────────
-async function ensureFreshYouTubeToken(
-  env: EnvWithKv,
-  session: DecryptedSessionData
-): Promise<DecryptedSessionData> {
-  const FIVE_MINUTES_MS = 5 * 60 * 1000;
-  if (session.expiresAt > Date.now() + FIVE_MINUTES_MS) {
-    return session;
+export async function getAllSessionsStatus(
+  env: Env
+): Promise<Record<string, { connected: boolean; profile?: Record<string, any> }>> {
+  const platforms = ["meta", "tiktok", "youtube", "threads"];
+  const result: Record<string, { connected: boolean; profile?: Record<string, any> }> = {};
+  for (const platform of platforms) {
+    const session = await getSession(env, platform);
+    result[platform] = session
+      ? { connected: true, profile: session.profile }
+      : { connected: false };
   }
-
-  if (!session.refreshToken) {
-    return session;
-  }
-
-  const clientId = (env.GOOGLE_CLIENT_ID || (env as any).EXPO_PUBLIC_GOOGLE_CLIENT_ID || '').trim();
-  const clientSecret = (env.GOOGLE_CLIENT_SECRET || (env as any).EXPO_PUBLIC_GOOGLE_CLIENT_SECRET || '').trim();
-
-  if (!clientId || !clientSecret) {
-    return session;
-  }
-
-  try {
-    const params = new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      grant_type: 'refresh_token',
-      refresh_token: session.refreshToken,
-    });
-
-    const res = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
-    });
-
-    if (res.ok) {
-      const data = (await res.json()) as any;
-      if (data.access_token) {
-        session.accessToken = data.access_token;
-        session.expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
-        if (data.refresh_token) session.refreshToken = data.refresh_token;
-        await saveEncryptedSession(env, session);
-        console.log('[SessionStore] YouTube: Token renovado automáticamente con éxito.');
-      }
-    }
-  } catch (refreshErr) {
-    console.warn('[SessionStore] Fallo al renovar token de YouTube:', refreshErr);
-  }
-
-  return session;
+  return result;
 }

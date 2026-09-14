@@ -88,34 +88,40 @@ export async function onRequestPost(context: EventContext): Promise<Response> {
     const { getDecryptedSession } = await import('../shared/session-store');
 
     if (plataformas.includes('tiktok') && !resolvedTokens.tiktok) {
-      const ttSess = await getDecryptedSession(context.env as any, 'tiktok', context.request);
+      const ttSess = await getDecryptedSession(context.env as any, 'tiktok');
       if (ttSess?.accessToken) {
         resolvedTokens.tiktok = ttSess.accessToken;
       }
     }
 
     if (
-      (plataformas.includes('facebook') || plataformas.includes('instagram') || plataformas.includes('threads')) &&
-      (!resolvedTokens.facebook || !resolvedTokens.instagram || !resolvedTokens.threads)
+      (plataformas.includes('facebook') || plataformas.includes('instagram')) &&
+      (!resolvedTokens.facebook || !resolvedTokens.instagram)
     ) {
-      const metaSess = await getDecryptedSession(context.env as any, 'meta', context.request);
+      const metaSess = await getDecryptedSession(context.env as any, 'meta');
       if (metaSess) {
-        const pageToken = (metaSess.metadata?.pageAccessToken as string) || metaSess.accessToken;
+        const pages: any[] = metaSess.profile?.pages ?? [];
+        const firstPage = pages[0];
+        const pageToken = firstPage?.access_token || metaSess.accessToken;
         if (!resolvedTokens.facebook) resolvedTokens.facebook = pageToken;
-        if (!resolvedFbPageId) resolvedFbPageId = (metaSess.metadata?.pageId as string) || metaSess.userId;
+        if (!resolvedFbPageId) resolvedFbPageId = firstPage?.id || 'me';
 
-        if (!resolvedTokens.instagram) resolvedTokens.instagram = pageToken;
-        if (!resolvedIgUserId) {
-          resolvedIgUserId = (metaSess.metadata?.instagramId as string) || (metaSess.metadata?.pageId as string) || metaSess.userId;
-        }
+        const igAccount = pages.find((p: any) => p.instagram_business_account)?.instagram_business_account;
+        if (!resolvedTokens.instagram) resolvedTokens.instagram = metaSess.accessToken;
+        if (!resolvedIgUserId) resolvedIgUserId = igAccount?.id;
+      }
+    }
 
-        if (!resolvedTokens.threads) resolvedTokens.threads = metaSess.accessToken;
-        if (!resolvedThreadsUserId) resolvedThreadsUserId = metaSess.userId;
+    if (plataformas.includes('threads') && !resolvedTokens.threads) {
+      const threadsSess = await getDecryptedSession(context.env as any, 'threads');
+      if (threadsSess) {
+        resolvedTokens.threads = threadsSess.accessToken;
+        if (!resolvedThreadsUserId) resolvedThreadsUserId = (threadsSess.profile as any)?.userId;
       }
     }
 
     if (plataformas.includes('youtube') && !resolvedTokens.youtube) {
-      const ytSess = await getDecryptedSession(context.env as any, 'youtube', context.request);
+      const ytSess = await getDecryptedSession(context.env as any, 'youtube');
       if (ytSess?.accessToken) {
         resolvedTokens.youtube = ytSess.accessToken;
       }

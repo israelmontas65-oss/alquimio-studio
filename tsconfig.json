@@ -4,6 +4,9 @@
     "strict": true,
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
+    "types": [
+      "@cloudflare/workers-types"
+    ],
     "paths": {
       "@/*": [
         "src/*"

@@ -1083,6 +1083,21 @@ export default function HomeScreen() {
       }
     }
     syncAccounts();
+
+    // 3. Abrir automáticamente modal de conexión al volver de /conectar-cuentas
+    if (typeof window !== 'undefined' && window.location) {
+      const isConectar = window.location.pathname.includes('conectar-cuentas');
+      const params = new URLSearchParams(window.location.search);
+      const p = params.get('platform');
+      if (isConectar || p) {
+        if (p === 'meta') setSelectedPlatformForConnect('facebook');
+        else if (p === 'tiktok' || p === 'youtube' || p === 'threads') {
+          setSelectedPlatformForConnect(p as PlatformId);
+        } else {
+          setSelectedPlatformForConnect('facebook');
+        }
+      }
+    }
   }, [linkAccount]);
 
   useEffect(() => {
